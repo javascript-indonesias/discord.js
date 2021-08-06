@@ -267,6 +267,27 @@ export class BaseGuildEmoji extends Emoji {
   public requiresColons: boolean | null;
 }
 
+export class BaseGuildTextChannel extends TextBasedChannel(GuildChannel) {
+  public constructor(guild: Guild, data?: RawGuildChannelData, client?: Client, immediatePatch?: boolean);
+  public defaultAutoArchiveDuration?: ThreadAutoArchiveDuration;
+  public messages: MessageManager;
+  public nsfw: boolean;
+  public threads: ThreadManager<AllowedThreadTypeForTextChannel>;
+  public topic: string | null;
+  public createInvite(options?: CreateInviteOptions): Promise<Invite>;
+  public createWebhook(name: string, options?: ChannelWebhookCreateOptions): Promise<Webhook>;
+  public fetchInvites(cache?: boolean): Promise<Collection<string, Invite>>;
+  public setDefaultAutoArchiveDuration(
+    defaultAutoArchiveDuration: ThreadAutoArchiveDuration,
+    reason?: string,
+  ): Promise<this>;
+  public setNSFW(nsfw: boolean, reason?: string): Promise<this>;
+  public setTopic(topic: string | null, reason?: string): Promise<this>;
+  public setType(type: Pick<typeof ChannelTypes, 'GUILD_TEXT'>, reason?: string): Promise<TextChannel>;
+  public setType(type: Pick<typeof ChannelTypes, 'GUILD_NEWS'>, reason?: string): Promise<NewsChannel>;
+  public fetchWebhooks(): Promise<Collection<Snowflake, Webhook>>;
+}
+
 export class BaseGuildVoiceChannel extends GuildChannel {
   public constructor(guild: Guild, data?: RawGuildChannelData);
   public readonly members: Collection<Snowflake, GuildMember>;
@@ -275,7 +296,9 @@ export class BaseGuildVoiceChannel extends GuildChannel {
   public rtcRegion: string | null;
   public bitrate: number;
   public userLimit: number;
+  public createInvite(options?: CreateInviteOptions): Promise<Invite>;
   public setRTCRegion(region: string | null): Promise<this>;
+  public fetchInvites(cache?: boolean): Promise<Collection<string, Invite>>;
 }
 
 export class BaseMessageComponent {
@@ -331,6 +354,7 @@ export class Channel extends Base {
   public delete(): Promise<Channel>;
   public fetch(force?: boolean): Promise<Channel>;
   public isText(): this is TextBasedChannels;
+  public isVoice(): this is VoiceChannel | StageChannel;
   public isThread(): this is ThreadChannel;
   public toString(): ChannelMention;
 }
@@ -450,7 +474,7 @@ export abstract class Collector<K, V, F extends unknown[] = []> extends EventEmi
   public filter: CollectorFilter<[V, ...F]>;
   public readonly next: Promise<V>;
   public options: CollectorOptions<[V, ...F]>;
-  public checkEnd(): void;
+  public checkEnd(): boolean;
   public handleCollect(...args: unknown[]): Promise<void>;
   public handleDispose(...args: unknown[]): Promise<void>;
   public stop(reason?: string): void;
@@ -481,8 +505,8 @@ export class CommandInteraction extends Interaction {
   public options: CommandInteractionOptionResolver;
   public replied: boolean;
   public webhook: InteractionWebhook;
-  public defer(options: InteractionDeferOptions & { fetchReply: true }): Promise<Message | APIMessage>;
-  public defer(options?: InteractionDeferOptions): Promise<void>;
+  public deferReply(options: InteractionDeferReplyOptions & { fetchReply: true }): Promise<Message | APIMessage>;
+  public deferReply(options?: InteractionDeferReplyOptions): Promise<void>;
   public deleteReply(): Promise<void>;
   public editReply(options: string | MessagePayload | WebhookEditMessageOptions): Promise<Message | APIMessage>;
   public fetchReply(): Promise<Message | APIMessage>;
@@ -623,7 +647,7 @@ export class Guild extends AnonymousGuild {
   public members: GuildMemberManager;
   public mfaLevel: MFALevel;
   public ownerId: Snowflake;
-  public preferredLocale: string;
+  public preferredLocale?: string;
   public premiumSubscriptionCount: number | null;
   public premiumTier: PremiumTier;
   public presences: PresenceManager;
@@ -746,7 +770,7 @@ export class GuildBan extends Base {
 }
 
 export class GuildChannel extends Channel {
-  public constructor(guild: Guild, data?: RawGuildChannelData, client?: Client);
+  public constructor(guild: Guild, data?: RawGuildChannelData, client?: Client, immediatePatch?: boolean);
   private memberPermissions(member: GuildMember): Readonly<Permissions>;
   private rolePermissions(role: Role): Readonly<Permissions>;
 
@@ -766,17 +790,14 @@ export class GuildChannel extends Channel {
   public type: Exclude<keyof typeof ChannelTypes, 'DM' | 'GROUP_DM' | 'UNKNOWN'>;
   public readonly viewable: boolean;
   public clone(options?: GuildChannelCloneOptions): Promise<this>;
-  public createInvite(options?: CreateInviteOptions): Promise<Invite>;
   public edit(data: ChannelData, reason?: string): Promise<this>;
   public equals(channel: GuildChannel): boolean;
-  public fetchInvites(cache?: boolean): Promise<Collection<string, Invite>>;
   public lockPermissions(): Promise<this>;
   public permissionsFor(memberOrRole: GuildMember | Role): Readonly<Permissions>;
   public permissionsFor(memberOrRole: GuildMemberResolvable | RoleResolvable): Readonly<Permissions> | null;
   public setName(name: string, reason?: string): Promise<this>;
   public setParent(channel: CategoryChannelResolvable | null, options?: SetParentOptions): Promise<this>;
   public setPosition(position: number, options?: SetChannelPositionOptions): Promise<this>;
-  public setTopic(topic: string | null, reason?: string): Promise<this>;
   public isText(): this is TextChannel | NewsChannel;
 }
 
@@ -964,12 +985,12 @@ export class InteractionCollector<T extends Interaction> extends Collector<Snowf
   private _handleChannelDeletion(channel: GuildChannel): void;
   private _handleGuildDeletion(guild: Guild): void;
 
-  public channel: TextBasedChannels | null;
+  public channelId: Snowflake | null;
   public componentType: MessageComponentType | null;
   public readonly endReason: string | null;
-  public guild: Guild | null;
+  public guildId: Snowflake | null;
   public interactionType: InteractionType | null;
-  public message: Message | null;
+  public messageId: Snowflake | null;
   public options: InteractionCollectorOptions<T>;
   public total: number;
   public users: Collection<Snowflake, User>;
@@ -1048,7 +1069,7 @@ export class LimitedCollection<K, V> extends Collection<K, V> {
 }
 
 export class Message extends Base {
-  public constructor(client: Client, data: RawMessageData, channel: TextBasedChannels);
+  public constructor(client: Client, data: RawMessageData);
   private _patch(data: RawPartialMessageData, partial: true): Message;
   private _patch(data: RawMessageData, partial?: boolean): Message;
   private _update(data: RawPartialMessageData, partial: true): Message;
@@ -1058,7 +1079,8 @@ export class Message extends Base {
   public applicationId: Snowflake | null;
   public attachments: Collection<Snowflake, MessageAttachment>;
   public author: User;
-  public channel: TextBasedChannels;
+  public readonly channel: TextBasedChannels;
+  public channelId: Snowflake;
   public readonly cleanContent: string;
   public components: MessageActionRow[];
   public content: string;
@@ -1072,6 +1094,7 @@ export class Message extends Base {
   public editedTimestamp: number | null;
   public embeds: MessageEmbed[];
   public groupActivityApplication: ClientApplication | null;
+  public guildId: Snowflake | null;
   public readonly guild: Guild | null;
   public readonly hasThread: boolean;
   public id: Snowflake;
@@ -1195,8 +1218,8 @@ export class MessageComponentInteraction extends Interaction {
   public message: Message | APIMessage;
   public replied: boolean;
   public webhook: InteractionWebhook;
-  public defer(options: InteractionDeferOptions & { fetchReply: true }): Promise<Message | APIMessage>;
-  public defer(options?: InteractionDeferOptions): Promise<void>;
+  public deferReply(options: InteractionDeferReplyOptions & { fetchReply: true }): Promise<Message | APIMessage>;
+  public deferReply(options?: InteractionDeferReplyOptions): Promise<void>;
   public deferUpdate(options: InteractionDeferUpdateOptions & { fetchReply: true }): Promise<Message | APIMessage>;
   public deferUpdate(options?: InteractionDeferUpdateOptions): Promise<void>;
   public deleteReply(): Promise<void>;
@@ -1347,22 +1370,8 @@ export class MessageSelectMenu extends BaseMessageComponent {
   public toJSON(): unknown;
 }
 
-export class NewsChannel extends TextBasedChannel(GuildChannel) {
-  public constructor(guild: Guild, data?: RawGuildChannelData);
-  public defaultAutoArchiveDuration?: ThreadAutoArchiveDuration;
-  public messages: MessageManager;
-  public nsfw: boolean;
-  public threads: ThreadManager<AllowedThreadTypeForNewsChannel>;
-  public topic: string | null;
+export class NewsChannel extends BaseGuildTextChannel {
   public type: 'GUILD_NEWS';
-  public createWebhook(name: string, options?: ChannelWebhookCreateOptions): Promise<Webhook>;
-  public setDefaultAutoArchiveDuration(
-    defaultAutoArchiveDuration: ThreadAutoArchiveDuration,
-    reason?: string,
-  ): Promise<NewsChannel>;
-  public setNSFW(nsfw: boolean, reason?: string): Promise<NewsChannel>;
-  public setType(type: Pick<typeof ChannelTypes, 'GUILD_TEXT' | 'GUILD_NEWS'>, reason?: string): Promise<GuildChannel>;
-  public fetchWebhooks(): Promise<Collection<Snowflake, Webhook>>;
   public addFollower(channel: GuildChannelResolvable, reason?: string): Promise<NewsChannel>;
 }
 
@@ -1627,6 +1636,7 @@ export class StageChannel extends BaseGuildVoiceChannel {
   public type: 'GUILD_STAGE_VOICE';
   public readonly stageInstance: StageInstance | null;
   public createStageInstance(options: StageInstanceCreateOptions): Promise<StageInstance>;
+  public setTopic(topic: string): Promise<StageChannel>;
 }
 
 export class StageInstance extends Base {
@@ -1690,6 +1700,8 @@ export class StickerPack extends Base {
 
 export class StoreChannel extends GuildChannel {
   public constructor(guild: Guild, data?: RawGuildChannelData, client?: Client);
+  public createInvite(options?: CreateInviteOptions): Promise<Invite>;
+  public fetchInvites(cache?: boolean): Promise<Collection<string, Invite>>;
   public nsfw: boolean;
   public type: 'GUILD_STORE';
 }
@@ -1727,24 +1739,10 @@ export class TeamMember extends Base {
   public toString(): UserMention;
 }
 
-export class TextChannel extends TextBasedChannel(GuildChannel) {
-  public constructor(guild: Guild, data?: RawGuildChannelData, client?: Client);
-  public defaultAutoArchiveDuration?: ThreadAutoArchiveDuration;
-  public messages: MessageManager;
-  public nsfw: boolean;
-  public type: 'GUILD_TEXT';
+export class TextChannel extends BaseGuildTextChannel {
   public rateLimitPerUser: number;
-  public threads: ThreadManager<AllowedThreadTypeForTextChannel>;
-  public topic: string | null;
-  public createWebhook(name: string, options?: ChannelWebhookCreateOptions): Promise<Webhook>;
-  public setDefaultAutoArchiveDuration(
-    defaultAutoArchiveDuration: ThreadAutoArchiveDuration,
-    reason?: string,
-  ): Promise<TextChannel>;
-  public setNSFW(nsfw: boolean, reason?: string): Promise<TextChannel>;
+  public type: 'GUILD_TEXT';
   public setRateLimitPerUser(rateLimitPerUser: number, reason?: string): Promise<TextChannel>;
-  public setType(type: Pick<typeof ChannelTypes, 'GUILD_TEXT' | 'GUILD_NEWS'>, reason?: string): Promise<GuildChannel>;
-  public fetchWebhooks(): Promise<Collection<Snowflake, Webhook>>;
 }
 
 export class ThreadChannel extends TextBasedChannel(Channel) {
@@ -1854,6 +1852,7 @@ export class UserFlags extends BitField<UserFlagsString> {
 
 export class Util extends null {
   private constructor();
+  public static archivedThreadSweepFilter<K, V>(lifetime?: number): SweepFilter<K, V>;
   public static basename(path: string, ext?: string): string;
   public static binaryToId(num: string): Snowflake;
   public static cleanContent(str: string, channel: Channel): string;
@@ -2143,22 +2142,32 @@ export const Constants: {
     CDN: (root: string) => {
       Asset: (name: string) => string;
       DefaultAvatar: (id: Snowflake | number) => string;
-      Emoji: (emojiId: Snowflake, format: 'png' | 'gif') => string;
-      Avatar: (
+      Emoji: (emojiId: Snowflake, format: DynamicImageFormat) => string;
+      Avatar: (userId: Snowflake, hash: string, format: DynamicImageFormat, size: AllowedImageSize) => string;
+      Banner: (guildId: Snowflake | number, hash: string, format: AllowedImageFormat, size: AllowedImageSize) => string;
+      Icon: (userId: Snowflake | number, hash: string, format: DynamicImageFormat, size: AllowedImageSize) => string;
+      AppIcon: (userId: Snowflake | number, hash: string, format: AllowedImageFormat, size: AllowedImageSize) => string;
+      AppAsset: (
         userId: Snowflake | number,
         hash: string,
-        format: 'default' | AllowedImageFormat,
-        size: number,
+        format: AllowedImageFormat,
+        size: AllowedImageSize,
       ) => string;
-      Banner: (guildId: Snowflake | number, hash: string, format: AllowedImageFormat, size: number) => string;
-      Icon: (userId: Snowflake | number, hash: string, format: 'default' | AllowedImageFormat, size: number) => string;
-      AppIcon: (userId: Snowflake | number, hash: string, format: AllowedImageFormat, size: number) => string;
-      AppAsset: (userId: Snowflake | number, hash: string, format: AllowedImageFormat, size: number) => string;
-      StickerPackBanner: (bannerId: Snowflake, format: AllowedImageFormat, size: number) => string;
-      GDMIcon: (userId: Snowflake | number, hash: string, format: AllowedImageFormat, size: number) => string;
-      Splash: (guildId: Snowflake | number, hash: string, format: AllowedImageFormat, size: number) => string;
-      DiscoverySplash: (guildId: Snowflake | number, hash: string, format: AllowedImageFormat, size: number) => string;
-      TeamIcon: (teamId: Snowflake | number, hash: string, format: AllowedImageFormat, size: number) => string;
+      StickerPackBanner: (bannerId: Snowflake, format: AllowedImageFormat, size: AllowedImageSize) => string;
+      GDMIcon: (userId: Snowflake | number, hash: string, format: AllowedImageFormat, size: AllowedImageSize) => string;
+      Splash: (guildId: Snowflake | number, hash: string, format: AllowedImageFormat, size: AllowedImageSize) => string;
+      DiscoverySplash: (
+        guildId: Snowflake | number,
+        hash: string,
+        format: AllowedImageFormat,
+        size: AllowedImageSize,
+      ) => string;
+      TeamIcon: (
+        teamId: Snowflake | number,
+        hash: string,
+        format: AllowedImageFormat,
+        size: AllowedImageSize,
+      ) => string;
       Sticker: (stickerId: Snowflake, stickerFormat: StickerFormatType) => string;
     };
   };
@@ -2695,7 +2704,9 @@ export interface AddGuildMemberOptions {
   fetchWhenExisting?: boolean;
 }
 
-export type AllowedImageFormat = 'webp' | 'png' | 'jpg' | 'jpeg' | 'gif';
+export type AllowedImageFormat = 'webp' | 'png' | 'jpg' | 'jpeg';
+
+export type AllowedImageSize = 16 | 32 | 64 | 128 | 256 | 512 | 1024 | 2048 | 4096;
 
 export type AllowedPartial = User | Channel | GuildMember | Message | MessageReaction;
 
@@ -2887,9 +2898,6 @@ export type ApplicationCommandPermissionType = keyof typeof ApplicationCommandPe
 export type ApplicationCommandResolvable = ApplicationCommand | Snowflake;
 
 export type ApplicationFlagsString =
-  | 'MANAGED_EMOJI'
-  | 'GROUP_DM_CREATE'
-  | 'RPC_HAS_CONNECTED'
   | 'GATEWAY_PRESENCE'
   | 'GATEWAY_PRESENCE_LIMITED'
   | 'GATEWAY_GUILD_MEMBERS'
@@ -2948,19 +2956,19 @@ export type BufferResolvable = Buffer | string;
 export interface Caches {
   ApplicationCommandManager: [manager: typeof ApplicationCommandManager, holds: typeof ApplicationCommand];
   BaseGuildEmojiManager: [manager: typeof BaseGuildEmojiManager, holds: typeof GuildEmoji];
-  ChannelManager: [manager: typeof ChannelManager, holds: typeof Channel];
-  GuildChannelManager: [manager: typeof GuildChannelManager, holds: typeof GuildChannel];
-  GuildManager: [manager: typeof GuildManager, holds: typeof Guild];
+  // TODO: ChannelManager: [manager: typeof ChannelManager, holds: typeof Channel];
+  // TODO: GuildChannelManager: [manager: typeof GuildChannelManager, holds: typeof GuildChannel];
+  // TODO: GuildManager: [manager: typeof GuildManager, holds: typeof Guild];
   GuildMemberManager: [manager: typeof GuildMemberManager, holds: typeof GuildMember];
   GuildBanManager: [manager: typeof GuildBanManager, holds: typeof GuildBan];
   GuildInviteManager: [manager: typeof GuildInviteManager, holds: typeof Invite];
   GuildStickerManager: [manager: typeof GuildStickerManager, holds: typeof Sticker];
   MessageManager: [manager: typeof MessageManager, holds: typeof Message];
-  PermissionOverwriteManager: [manager: typeof PermissionOverwriteManager, holds: typeof PermissionOverwrites];
+  // TODO: PermissionOverwriteManager: [manager: typeof PermissionOverwriteManager, holds: typeof PermissionOverwrites];
   PresenceManager: [manager: typeof PresenceManager, holds: typeof Presence];
   ReactionManager: [manager: typeof ReactionManager, holds: typeof MessageReaction];
   ReactionUserManager: [manager: typeof ReactionUserManager, holds: typeof User];
-  RoleManager: [manager: typeof RoleManager, holds: typeof Role];
+  // TODO: RoleManager: [manager: typeof RoleManager, holds: typeof Role];
   StageInstanceManager: [manager: typeof StageInstanceManager, holds: typeof StageInstance];
   ThreadManager: [manager: typeof ThreadManager, holds: typeof ThreadChannel];
   ThreadMemberManager: [manager: typeof ThreadMemberManager, holds: typeof ThreadMember];
@@ -3386,6 +3394,8 @@ export interface DeconstructedSnowflake {
 
 export type DefaultMessageNotificationLevel = keyof typeof DefaultMessageNotificationLevels;
 
+export type DynamicImageFormat = AllowedImageFormat | 'gif';
+
 export interface EditGuildTemplateOptions {
   name?: string;
   description?: string;
@@ -3701,20 +3711,19 @@ export type GuildFeatures =
   | 'FEATURABLE'
   | 'INVITE_SPLASH'
   | 'MEMBER_VERIFICATION_GATE_ENABLED'
-  | 'MONETIZATION_ENABLED'
-  | 'MORE_STICKERS'
   | 'NEWS'
   | 'PARTNERED'
   | 'PREVIEW_ENABLED'
-  | 'PRIVATE_THREADS'
-  | 'RELAY_ENABLED'
-  | 'SEVEN_DAY_THREAD_ARCHIVE'
-  | 'THREE_DAY_THREAD_ARCHIVE'
-  | 'TICKETED_EVENTS_ENABLED'
   | 'VANITY_URL'
   | 'VERIFIED'
   | 'VIP_REGIONS'
-  | 'WELCOME_SCREEN_ENABLED';
+  | 'WELCOME_SCREEN_ENABLED'
+  | 'TICKETED_EVENTS_ENABLED'
+  | 'MONETIZATION_ENABLED'
+  | 'MORE_STICKERS'
+  | 'THREE_DAY_THREAD_ARCHIVE'
+  | 'SEVEN_DAY_THREAD_ARCHIVE'
+  | 'PRIVATE_THREADS';
 
 export interface GuildMemberEditData {
   nick?: string | null;
@@ -3774,8 +3783,6 @@ export interface HTTPOptions {
   headers?: Record<string, string>;
 }
 
-export type ImageSize = 16 | 32 | 64 | 128 | 256 | 512 | 1024 | 2048 | 4096;
-
 export interface ImageURLOptions extends StaticImageURLOptions {
   dynamic?: boolean;
 }
@@ -3793,15 +3800,15 @@ export interface InteractionCollectorOptions<T extends Interaction> extends Coll
   max?: number;
   maxComponents?: number;
   maxUsers?: number;
-  message?: Message;
+  message?: Message | APIMessage;
 }
 
-export interface InteractionDeferOptions {
+export interface InteractionDeferReplyOptions {
   ephemeral?: boolean;
   fetchReply?: boolean;
 }
 
-export type InteractionDeferUpdateOptions = Omit<InteractionDeferOptions, 'ephemeral'>;
+export type InteractionDeferUpdateOptions = Omit<InteractionDeferReplyOptions, 'ephemeral'>;
 
 export interface InteractionReplyOptions extends Omit<WebhookMessageOptions, 'username' | 'avatarURL'> {
   ephemeral?: boolean;
@@ -3906,17 +3913,17 @@ export interface BaseButtonOptions extends BaseMessageComponentOptions {
   label?: string;
 }
 
-export type MessageButtonOptions = BaseButtonOptions &
-  (
-    | {
-        style: Exclude<MessageButtonStyleResolvable, 'LINK' | MessageButtonStyles.LINK>;
-        customId: string;
-      }
-    | {
-        style: 'LINK' | MessageButtonStyles.LINK;
-        url: string;
-      }
-  );
+export interface LinkButtonOptions extends BaseButtonOptions {
+  style: 'LINK' | MessageButtonStyles.LINK;
+  url: string;
+}
+
+export interface InteractionButtonOptions extends BaseButtonOptions {
+  style: Exclude<MessageButtonStyleResolvable, 'LINK' | MessageButtonStyles.LINK>;
+  customId: string;
+}
+
+export type MessageButtonOptions = InteractionButtonOptions | LinkButtonOptions;
 
 export type MessageButtonStyle = keyof typeof MessageButtonStyles;
 
@@ -4101,10 +4108,7 @@ export interface MessageSelectOptionData {
 export type MessageTarget =
   | Interaction
   | InteractionWebhook
-  | TextChannel
-  | NewsChannel
-  | ThreadChannel
-  | DMChannel
+  | TextBasedChannels
   | User
   | GuildMember
   | Webhook
@@ -4119,7 +4123,7 @@ export type MessageType =
   | 'CALL'
   | 'CHANNEL_NAME_CHANGE'
   | 'CHANNEL_ICON_CHANGE'
-  | 'PINS_ADD'
+  | 'CHANNEL_PINNED_MESSAGE'
   | 'GUILD_MEMBER_JOIN'
   | 'USER_PREMIUM_GUILD_SUBSCRIPTION'
   | 'USER_PREMIUM_GUILD_SUBSCRIPTION_TIER_1'
@@ -4375,7 +4379,7 @@ export interface SplitOptions {
 
 export interface StaticImageURLOptions {
   format?: AllowedImageFormat;
-  size?: ImageSize;
+  size?: AllowedImageSize;
 }
 
 export type StageInstanceResolvable = StageInstance | Snowflake;
