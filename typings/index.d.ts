@@ -1,18 +1,23 @@
 import {
   blockQuote,
   bold,
+  channelMention,
   codeBlock,
+  formatEmoji,
   hideLinkEmbed,
   hyperlink,
   inlineCode,
   italic,
+  memberNicknameMention,
   quote,
+  roleMention,
+  spoiler,
   strikethrough,
   time,
   TimestampStyles,
   TimestampStylesString,
   underscore,
-  spoiler,
+  userMention,
 } from '@discordjs/builders';
 import { Collection } from '@discordjs/collection';
 import { ChildProcess } from 'child_process';
@@ -21,6 +26,7 @@ import {
   APIApplicationCommand,
   APIApplicationCommandInteractionData,
   APIApplicationCommandInteractionDataOption,
+  APIApplicationCommandOption,
   APIApplicationCommandPermission,
   APIAuditLogChange,
   APIEmoji,
@@ -48,6 +54,7 @@ import {
   ActivityTypes,
   ApplicationCommandOptionTypes,
   ApplicationCommandPermissionTypes,
+  ApplicationCommandTypes,
   ChannelTypes,
   DefaultMessageNotificationLevels,
   ExplicitContentFilterLevels,
@@ -123,7 +130,7 @@ import {
   RawWelcomeChannelData,
   RawWelcomeScreenData,
   RawWidgetData,
-  RawWidgetMemberData,
+  RawWidgetMemberData
 } from './rawDataTypes';
 
 //#region Classes
@@ -209,6 +216,7 @@ export class ApplicationCommand<PermissionsFetchType = {}> extends Base {
     Guild | null,
     Snowflake
   >;
+  public type: ApplicationCommandType;
   public delete(): Promise<ApplicationCommand<PermissionsFetchType>>;
   public edit(data: ApplicationCommandData): Promise<ApplicationCommand<PermissionsFetchType>>;
   private static transformOption(option: ApplicationCommandOptionData, received?: boolean): unknown;
@@ -238,6 +246,30 @@ export class BaseClient extends EventEmitter {
   public options: ClientOptions | WebhookClientOptions;
   public destroy(): void;
   public toJSON(...props: Record<string, boolean | string>[]): unknown;
+}
+
+export abstract class BaseCommandInteraction extends Interaction {
+  public readonly command: ApplicationCommand | ApplicationCommand<{ guild: GuildResolvable }> | null;
+  public readonly channel: TextBasedChannels | null;
+  public channelId: Snowflake;
+  public commandId: Snowflake;
+  public commandName: string;
+  public deferred: boolean;
+  public ephemeral: boolean | null;
+  public replied: boolean;
+  public webhook: InteractionWebhook;
+  public deferReply(options: InteractionDeferReplyOptions & { fetchReply: true }): Promise<Message | APIMessage>;
+  public deferReply(options?: InteractionDeferReplyOptions): Promise<void>;
+  public deleteReply(): Promise<void>;
+  public editReply(options: string | MessagePayload | WebhookEditMessageOptions): Promise<Message | APIMessage>;
+  public fetchReply(): Promise<Message | APIMessage>;
+  public followUp(options: string | MessagePayload | InteractionReplyOptions): Promise<Message | APIMessage>;
+  public reply(options: InteractionReplyOptions & { fetchReply: true }): Promise<Message | APIMessage>;
+  public reply(options: string | MessagePayload | InteractionReplyOptions): Promise<void>;
+  private transformOption(
+    option: APIApplicationCommandOption,
+    resolved: APIApplicationCommandInteractionData['resolved'],
+  ): CommandInteractionOption;
 }
 
 export abstract class BaseGuild extends Base {
@@ -450,7 +482,7 @@ export class ClientUser extends User {
 export class Options extends null {
   private constructor();
   public static defaultMakeCacheSettings: CacheWithLimitsOptions;
-  public static createDefaultOptions(): ClientOptions;
+  public static createDefault(): ClientOptions;
   public static cacheWithLimits(settings?: CacheWithLimitsOptions): CacheFactory;
   public static cacheEverything(): CacheFactory;
 }
@@ -494,30 +526,8 @@ export abstract class Collector<K, V, F extends unknown[] = []> extends EventEmi
   public once(event: 'end', listener: (collected: Collection<K, V>, reason: string) => Awaited<void>): this;
 }
 
-export class CommandInteraction extends Interaction {
-  public constructor(client: Client, data: RawCommandInteractionData);
-  public readonly command: ApplicationCommand | ApplicationCommand<{ guild: GuildResolvable }> | null;
-  public readonly channel: TextBasedChannels | null;
-  public channelId: Snowflake;
-  public commandId: Snowflake;
-  public commandName: string;
-  public deferred: boolean;
-  public ephemeral: boolean | null;
+export class CommandInteraction extends BaseCommandInteraction {
   public options: CommandInteractionOptionResolver;
-  public replied: boolean;
-  public webhook: InteractionWebhook;
-  public deferReply(options: InteractionDeferReplyOptions & { fetchReply: true }): Promise<Message | APIMessage>;
-  public deferReply(options?: InteractionDeferReplyOptions): Promise<void>;
-  public deleteReply(): Promise<void>;
-  public editReply(options: string | MessagePayload | WebhookEditMessageOptions): Promise<Message | APIMessage>;
-  public fetchReply(): Promise<Message | APIMessage>;
-  public followUp(options: string | MessagePayload | InteractionReplyOptions): Promise<Message | APIMessage>;
-  public reply(options: InteractionReplyOptions & { fetchReply: true }): Promise<Message | APIMessage>;
-  public reply(options: string | MessagePayload | InteractionReplyOptions): Promise<void>;
-  private transformOption(
-    option: APIApplicationCommandInteractionDataOption,
-    resolved: APIApplicationCommandInteractionData['resolved'],
-  ): CommandInteractionOption;
 }
 
 export class CommandInteractionOptionResolver {
@@ -571,6 +581,15 @@ export class CommandInteractionOptionResolver {
     name: string,
     required?: boolean,
   ): NonNullable<CommandInteractionOption['member' | 'role' | 'user']> | null;
+  public getMessage(name: string, required: true): NonNullable<CommandInteractionOption['message']>;
+  public getMessage(name: string, required?: boolean): NonNullable<CommandInteractionOption['message']> | null;
+}
+
+export class ContextMenuInteraction extends BaseCommandInteraction {
+  public options: CommandInteractionOptionResolver;
+  public targetId: Snowflake;
+  public targetType: Exclude<ApplicationCommandType, 'CHAT_INPUT'>;
+  private resolveContextMenuOptions(data: APIApplicationCommandInteractionData): CommandInteractionOption[];
 }
 
 export class DataResolver extends null {
@@ -976,6 +995,7 @@ export class Interaction extends Base {
   public inGuild(): this is this & { guildId: Snowflake; member: GuildMember | APIInteractionGuildMember };
   public isButton(): this is ButtonInteraction;
   public isCommand(): this is CommandInteraction;
+  public isContextMenu(): this is ContextMenuInteraction;
   public isMessageComponent(): this is MessageComponentInteraction;
   public isSelectMenu(): this is SelectMenuInteraction;
 }
@@ -1897,18 +1917,23 @@ export class Util extends null {
 export class Formatters extends null {
   public static blockQuote: typeof blockQuote;
   public static bold: typeof bold;
+  public static channelMention: typeof channelMention;
   public static codeBlock: typeof codeBlock;
+  public static formatEmoji: typeof formatEmoji;
   public static hideLinkEmbed: typeof hideLinkEmbed;
   public static hyperlink: typeof hyperlink;
   public static inlineCode: typeof inlineCode;
   public static italic: typeof italic;
+  public static memberNicknameMention: typeof memberNicknameMention;
   public static quote: typeof quote;
+  public static roleMention: typeof roleMention;
+  public static spoiler: typeof spoiler;
   public static strikethrough: typeof strikethrough;
   public static time: typeof time;
   public static TimestampStyles: typeof TimestampStyles;
   public static TimestampStylesString: TimestampStylesString;
   public static underscore: typeof underscore;
-  public static spoiler: typeof spoiler;
+  public static userMention: typeof userMention;
 }
 
 export class VoiceChannel extends BaseGuildVoiceChannel {
@@ -2256,11 +2281,11 @@ export abstract class CachedManager<K, Holds, R> extends DataManager<K, Holds, R
 }
 
 export class ApplicationCommandManager<
-  ApplicationCommandType = ApplicationCommand<{ guild: GuildResolvable }>,
+  ApplicationCommandScope = ApplicationCommand<{ guild: GuildResolvable }>,
   PermissionsOptionsExtras = { guild: GuildResolvable },
   PermissionsGuildType = null,
-> extends CachedManager<Snowflake, ApplicationCommandType, ApplicationCommandResolvable> {
-  public constructor(client: Client, iterable?: Iterable<RawApplicationCommandData>);
+> extends CachedManager<Snowflake, ApplicationCommandScope, ApplicationCommandResolvable> {
+  public constructor(client: Client, iterable?: Iterable<unknown>);
   public permissions: ApplicationCommandPermissionsManager<
     { command?: ApplicationCommandResolvable } & PermissionsOptionsExtras,
     { command: ApplicationCommandResolvable } & PermissionsOptionsExtras,
@@ -2269,10 +2294,10 @@ export class ApplicationCommandManager<
     null
   >;
   private commandPath({ id, guildId }: { id?: Snowflake; guildId?: Snowflake }): unknown;
-  public create(command: ApplicationCommandData): Promise<ApplicationCommandType>;
+  public create(command: ApplicationCommandData): Promise<ApplicationCommandScope>;
   public create(command: ApplicationCommandData, guildId: Snowflake): Promise<ApplicationCommand>;
-  public delete(command: ApplicationCommandResolvable, guildId?: Snowflake): Promise<ApplicationCommandType | null>;
-  public edit(command: ApplicationCommandResolvable, data: ApplicationCommandData): Promise<ApplicationCommandType>;
+  public delete(command: ApplicationCommandResolvable, guildId?: Snowflake): Promise<ApplicationCommandScope | null>;
+  public edit(command: ApplicationCommandResolvable, data: ApplicationCommandData): Promise<ApplicationCommandScope>;
   public edit(
     command: ApplicationCommandResolvable,
     data: ApplicationCommandData,
@@ -2282,12 +2307,12 @@ export class ApplicationCommandManager<
     id: Snowflake,
     options: FetchApplicationCommandOptions & { guildId: Snowflake },
   ): Promise<ApplicationCommand>;
-  public fetch(id: Snowflake, options?: FetchApplicationCommandOptions): Promise<ApplicationCommandType>;
+  public fetch(id: Snowflake, options?: FetchApplicationCommandOptions): Promise<ApplicationCommandScope>;
   public fetch(
     id?: Snowflake,
     options?: FetchApplicationCommandOptions,
-  ): Promise<Collection<Snowflake, ApplicationCommandType>>;
-  public set(commands: ApplicationCommandData[]): Promise<Collection<Snowflake, ApplicationCommandType>>;
+  ): Promise<Collection<Snowflake, ApplicationCommandScope>>;
+  public set(commands: ApplicationCommandData[]): Promise<Collection<Snowflake, ApplicationCommandScope>>;
   public set(
     commands: ApplicationCommandData[],
     guildId: Snowflake,
@@ -2866,12 +2891,29 @@ export interface ApplicationAsset {
   type: 'BIG' | 'SMALL';
 }
 
-export interface ApplicationCommandData {
+export interface BaseApplicationCommandData {
   name: string;
-  description: string;
-  options?: ApplicationCommandOptionData[];
   defaultPermission?: boolean;
 }
+
+export interface UserApplicationCommandData extends BaseApplicationCommandData {
+  type: 'USER' | ApplicationCommandTypes.USER;
+}
+
+export interface MessageApplicationCommandData extends BaseApplicationCommandData {
+  type: 'MESSAGE' | ApplicationCommandTypes.MESSAGE;
+}
+
+export interface ChatInputApplicationCommandData extends BaseApplicationCommandData {
+  description: string;
+  type: 'CHAT_INPUT' | ApplicationCommandTypes.CHAT_INPUT;
+  options?: ApplicationCommandOptionData[];
+}
+
+export type ApplicationCommandData =
+  | UserApplicationCommandData
+  | MessageApplicationCommandData
+  | ChatInputApplicationCommandData;
 
 export interface ApplicationCommandOptionData {
   type: ApplicationCommandOptionType | ApplicationCommandOptionTypes;
@@ -2891,6 +2933,8 @@ export interface ApplicationCommandOptionChoice {
   name: string;
   value: string | number;
 }
+
+export type ApplicationCommandType = keyof typeof ApplicationCommandTypes;
 
 export type ApplicationCommandOptionType = keyof typeof ApplicationCommandOptionTypes;
 
@@ -3089,7 +3133,7 @@ export interface ClientEvents {
   messageReactionRemoveAll: [message: Message | PartialMessage];
   messageReactionRemoveEmoji: [reaction: MessageReaction | PartialMessageReaction];
   messageDeleteBulk: [messages: Collection<Snowflake, Message | PartialMessage>];
-  messageReactionAdd: [message: MessageReaction | PartialMessageReaction, user: User | PartialUser];
+  messageReactionAdd: [reaction: MessageReaction | PartialMessageReaction, user: User | PartialUser];
   messageReactionRemove: [reaction: MessageReaction | PartialMessageReaction, user: User | PartialUser];
   messageUpdate: [oldMessage: Message | PartialMessage, newMessage: Message | PartialMessage];
   presenceUpdate: [oldPresence: Presence | null, newPresence: Presence];
@@ -3234,6 +3278,7 @@ export interface CommandInteractionOption {
   member?: GuildMember | APIInteractionDataResolvedGuildMember;
   channel?: GuildChannel | APIInteractionDataResolvedChannel;
   role?: Role | APIRole;
+  message?: Message | APIMessage;
 }
 
 export interface ConstantsClientApplicationAssetTypes {
