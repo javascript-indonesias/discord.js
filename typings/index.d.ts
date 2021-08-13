@@ -130,7 +130,7 @@ import {
   RawWelcomeChannelData,
   RawWelcomeScreenData,
   RawWidgetData,
-  RawWidgetMemberData
+  RawWidgetMemberData,
 } from './rawDataTypes';
 
 //#region Classes
@@ -270,6 +270,7 @@ export abstract class BaseCommandInteraction extends Interaction {
     option: APIApplicationCommandOption,
     resolved: APIApplicationCommandInteractionData['resolved'],
   ): CommandInteractionOption;
+  private transformResolved(resolved: APIApplicationCommandInteractionData['resolved']): CommandInteractionResolvedData;
 }
 
 export abstract class BaseGuild extends Base {
@@ -534,6 +535,7 @@ export class CommandInteractionOptionResolver {
   public constructor(client: Client, options: CommandInteractionOption[]);
   public readonly client: Client;
   public readonly data: readonly CommandInteractionOption[];
+  public readonly resolved: Readonly<CommandInteractionResolvedData>;
   private _group: string | null;
   private _hoistedOptions: CommandInteractionOption[];
   private _subcommand: string | null;
@@ -667,7 +669,7 @@ export class Guild extends AnonymousGuild {
   public members: GuildMemberManager;
   public mfaLevel: MFALevel;
   public ownerId: Snowflake;
-  public preferredLocale?: string;
+  public preferredLocale: string;
   public premiumSubscriptionCount: number | null;
   public premiumTier: PremiumTier;
   public presences: PresenceManager;
@@ -1668,7 +1670,7 @@ export class StageInstance extends Base {
   public channelId: Snowflake;
   public topic: string;
   public privacyLevel: PrivacyLevel;
-  public discoverableDisabled: boolean;
+  public discoverableDisabled: boolean | null;
   public readonly channel: StageChannel | null;
   public readonly guild: Guild | null;
   public edit(options: StageInstanceEditOptions): Promise<StageInstance>;
@@ -2107,16 +2109,16 @@ export class WidgetMember extends Base {
   public id: string;
   public username: string;
   public discriminator: string;
-  public avatar?: string;
+  public avatar: string | null;
   public status: PresenceStatus;
-  public deaf?: boolean;
-  public mute?: boolean;
-  public selfDeaf?: boolean;
-  public selfMute?: boolean;
-  public suppress?: boolean;
-  public channelId?: Snowflake;
+  public deaf: boolean | null;
+  public mute: boolean | null;
+  public selfDeaf: boolean | null;
+  public selfMute: boolean | null;
+  public suppress: boolean | null;
+  public channelId: Snowflake | null;
   public avatarURL: string;
-  public activity?: WidgetActivity;
+  public activity: WidgetActivity | null;
 }
 
 export class WelcomeChannel extends Base {
@@ -2251,6 +2253,7 @@ export const Constants: {
   PrivacyLevels: typeof PrivacyLevels;
   WebhookTypes: typeof WebhookTypes;
   PremiumTiers: typeof PremiumTiers;
+  ApplicationCommandTypes: typeof ApplicationCommandTypes;
 };
 
 export const version: string;
@@ -2474,6 +2477,7 @@ export class GuildMemberManager extends CachedManager<Snowflake, GuildMember, Gu
   ): Promise<GuildMember>;
   public fetch(options?: FetchMembersOptions): Promise<Collection<Snowflake, GuildMember>>;
   public kick(user: UserResolvable, reason?: string): Promise<GuildMember | User | Snowflake>;
+  public list(options?: GuildListMembersOptions): Promise<Collection<Snowflake, GuildMember>>;
   public prune(options: GuildPruneMembersOptions & { dry?: false; count: false }): Promise<null>;
   public prune(options?: GuildPruneMembersOptions): Promise<number>;
   public search(options: GuildSearchMembersOptions): Promise<Collection<Snowflake, GuildMember>>;
@@ -2896,6 +2900,33 @@ export interface BaseApplicationCommandData {
   defaultPermission?: boolean;
 }
 
+export type CommandOptionDataTypeResolvable = ApplicationCommandOptionType | ApplicationCommandOptionTypes;
+
+export type CommandOptionChoiceResolvableType =
+  | ApplicationCommandOptionTypes.NUMBER
+  | 'NUMBER'
+  | ApplicationCommandOptionTypes.STRING
+  | 'STRING'
+  | ApplicationCommandOptionTypes.INTEGER
+  | 'INTEGER';
+
+export type CommandOptionSubOptionResolvableType =
+  | ApplicationCommandOptionTypes.SUB_COMMAND
+  | 'SUB_COMMAND'
+  | ApplicationCommandOptionTypes.SUB_COMMAND_GROUP
+  | 'SUB_COMMAND_GROUP';
+
+export type CommandOptionNonChoiceResolvableType = Exclude<
+  CommandOptionDataTypeResolvable,
+  CommandOptionChoiceResolvableType | CommandOptionSubOptionResolvableType
+>;
+
+export interface BaseApplicationCommandOptionsData {
+  name: string;
+  description: string;
+  required?: boolean;
+}
+
 export interface UserApplicationCommandData extends BaseApplicationCommandData {
   type: 'USER' | ApplicationCommandTypes.USER;
 }
@@ -2906,7 +2937,7 @@ export interface MessageApplicationCommandData extends BaseApplicationCommandDat
 
 export interface ChatInputApplicationCommandData extends BaseApplicationCommandData {
   description: string;
-  type: 'CHAT_INPUT' | ApplicationCommandTypes.CHAT_INPUT;
+  type?: 'CHAT_INPUT' | ApplicationCommandTypes.CHAT_INPUT;
   options?: ApplicationCommandOptionData[];
 }
 
@@ -2915,19 +2946,35 @@ export type ApplicationCommandData =
   | MessageApplicationCommandData
   | ChatInputApplicationCommandData;
 
-export interface ApplicationCommandOptionData {
-  type: ApplicationCommandOptionType | ApplicationCommandOptionTypes;
-  name: string;
-  description: string;
-  required?: boolean;
+export interface ApplicationCommandChoicesData extends BaseApplicationCommandOptionsData {
+  type: CommandOptionChoiceResolvableType;
   choices?: ApplicationCommandOptionChoice[];
-  options?: ApplicationCommandOptionData[];
 }
 
-export interface ApplicationCommandOption extends ApplicationCommandOptionData {
+export interface ApplicationCommandSubGroupData extends BaseApplicationCommandOptionsData {
+  type: 'SUB_COMMAND_GROUP' | ApplicationCommandOptionTypes.SUB_COMMAND_GROUP;
+  options?: ApplicationCommandSubCommandData[];
+}
+
+export interface ApplicationCommandSubCommandData extends BaseApplicationCommandOptionsData {
+  type: 'SUB_COMMAND' | ApplicationCommandOptionTypes.SUB_COMMAND;
+  options?: (ApplicationCommandChoicesData | ApplicationCommandNonOptionsData)[];
+}
+
+export interface ApplicationCommandNonOptionsData extends BaseApplicationCommandOptionsData {
+  type: CommandOptionNonChoiceResolvableType;
+}
+
+export type ApplicationCommandOptionData =
+  | ApplicationCommandSubGroupData
+  | ApplicationCommandNonOptionsData
+  | ApplicationCommandChoicesData
+  | ApplicationCommandSubCommandData;
+
+export type ApplicationCommandOption = ApplicationCommandOptionData & {
   type: ApplicationCommandOptionType;
   options?: ApplicationCommandOption[];
-}
+};
 
 export interface ApplicationCommandOptionChoice {
   name: string;
@@ -3281,6 +3328,14 @@ export interface CommandInteractionOption {
   message?: Message | APIMessage;
 }
 
+export interface CommandInteractionResolvedData {
+  users?: Collection<string, User>;
+  members?: Collection<string, GuildMember | APIInteractionDataResolvedGuildMember>;
+  roles?: Collection<string, Role | APIRole>;
+  channels?: Collection<string, Channel | APIInteractionDataResolvedChannel>;
+  messages?: Collection<string, Message | APIMessage>;
+}
+
 export interface ConstantsClientApplicationAssetTypes {
   SMALL: 1;
   BIG: 2;
@@ -3524,6 +3579,7 @@ export interface FetchedThreads {
 
 export interface FetchGuildOptions extends BaseFetchOptions {
   guild: GuildResolvable;
+  withCounts?: boolean;
 }
 
 export interface FetchGuildsOptions {
@@ -3808,6 +3864,12 @@ export interface GuildWidgetSettingsData {
 
 export interface GuildSearchMembersOptions {
   query: string;
+  limit?: number;
+  cache?: boolean;
+}
+
+export interface GuildListMembersOptions {
+  after?: Snowflake;
   limit?: number;
   cache?: boolean;
 }
