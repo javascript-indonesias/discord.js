@@ -25,7 +25,6 @@ import {
   APIActionRowComponent,
   APIApplicationCommand,
   APIApplicationCommandInteractionData,
-  APIApplicationCommandInteractionDataOption,
   APIApplicationCommandOption,
   APIApplicationCommandPermission,
   APIAuditLogChange,
@@ -85,7 +84,6 @@ import {
   RawBaseGuildData,
   RawChannelData,
   RawClientApplicationData,
-  RawCommandInteractionData,
   RawDMChannelData,
   RawEmojiData,
   RawGuildAuditLogData,
@@ -407,7 +405,7 @@ export class Channel extends Base {
   public delete(): Promise<Channel>;
   public fetch(force?: boolean): Promise<Channel>;
   public isText(): this is TextBasedChannels;
-  public isVoice(): this is VoiceChannel | StageChannel;
+  public isVoice(): this is BaseGuildVoiceChannel;
   public isThread(): this is ThreadChannel;
   public toString(): ChannelMention;
 }
@@ -2090,7 +2088,7 @@ export class VoiceState extends Base {
   public setDeaf(deaf?: boolean, reason?: string): Promise<GuildMember>;
   public setMute(mute?: boolean, reason?: string): Promise<GuildMember>;
   public disconnect(reason?: string): Promise<GuildMember>;
-  public setChannel(channel: VoiceChannelResolvable | null, reason?: string): Promise<GuildMember>;
+  public setChannel(channel: GuildVoiceChannelResolvable | null, reason?: string): Promise<GuildMember>;
   public setRequestToSpeak(request?: boolean): Promise<void>;
   public setSuppressed(suppressed?: boolean): Promise<void>;
 }
@@ -2772,7 +2770,7 @@ export class ThreadMemberManager extends CachedManager<Snowflake, ThreadMember, 
 
 export class UserManager extends CachedManager<Snowflake, User, UserResolvable> {
   public constructor(client: Client, iterable?: Iterable<RawUserData>);
-  public fetch(id: Snowflake, options?: BaseFetchOptions): Promise<User>;
+  public fetch(user: UserResolvable, options?: BaseFetchOptions): Promise<User>;
 }
 
 export class VoiceStateManager extends CachedManager<Snowflake, VoiceState, typeof VoiceState> {
@@ -3001,6 +2999,7 @@ export interface APIErrors {
   PARAMETER_EARLIER_THAN_CREATION: 50085;
   GUILD_NOT_AVAILABLE_IN_LOCATION: 50095;
   GUILD_MONETIZATION_REQUIRED: 50097;
+  INSUFFICIENT_BOOSTS: 50101;
   TWO_FACTOR_REQUIRED: 60003;
   NO_USERS_WITH_DISCORDTAG_EXIST: 80004;
   REACTION_BLOCKED: 90001;
@@ -3189,6 +3188,7 @@ export type BufferResolvable = Buffer | string;
 export interface Caches {
   ApplicationCommandManager: [manager: typeof ApplicationCommandManager, holds: typeof ApplicationCommand];
   BaseGuildEmojiManager: [manager: typeof BaseGuildEmojiManager, holds: typeof GuildEmoji];
+  GuildEmojiManager: [manager: typeof GuildEmojiManager, holds: typeof GuildEmoji];
   // TODO: ChannelManager: [manager: typeof ChannelManager, holds: typeof Channel];
   // TODO: GuildChannelManager: [manager: typeof GuildChannelManager, holds: typeof GuildChannel];
   // TODO: GuildManager: [manager: typeof GuildManager, holds: typeof Guild];

@@ -19,7 +19,7 @@ const AllowedImageFormats = ['webp', 'png', 'jpg', 'jpeg', 'gif'];
 const AllowedImageSizes = Array.from({ length: 9 }, (e, i) => 2 ** (i + 4));
 
 function makeImageUrl(root, { format = 'webp', size } = {}) {
-  if (typeof size !== 'number') throw new TypeError('INVALID_TYPE', 'size', 'number');
+  if (!['undefined', 'number'].includes(typeof size)) throw new TypeError('INVALID_TYPE', 'size', 'number');
   if (format && !AllowedImageFormats.includes(format)) throw new Error('IMAGE_FORMAT', format);
   if (size && !AllowedImageSizes.includes(size)) throw new RangeError('IMAGE_SIZE', size);
   return `${root}.${format}${size ? `?size=${size}` : ''}`;
@@ -695,6 +695,7 @@ exports.VerificationLevels = createEnum(['NONE', 'LOW', 'MEDIUM', 'HIGH', 'VERY_
  * * PARAMETER_EARLIER_THAN_CREATION
  * * GUILD_NOT_AVAILABLE_IN_LOCATION
  * * GUILD_MONETIZATION_REQUIRED
+ * * INSUFFICIENT_BOOSTS
  * * TWO_FACTOR_REQUIRED
  * * NO_USERS_WITH_DISCORDTAG_EXIST
  * * REACTION_BLOCKED
@@ -828,6 +829,7 @@ exports.APIErrors = {
   PARAMETER_EARLIER_THAN_CREATION: 50085,
   GUILD_NOT_AVAILABLE_IN_LOCATION: 50095,
   GUILD_MONETIZATION_REQUIRED: 50097,
+  INSUFFICIENT_BOOSTS: 50101,
   TWO_FACTOR_REQUIRED: 60003,
   NO_USERS_WITH_DISCORDTAG_EXIST: 80004,
   REACTION_BLOCKED: 90001,
