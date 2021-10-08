@@ -20,7 +20,6 @@ import {
   userMention,
 } from '@discordjs/builders';
 import { Collection } from '@discordjs/collection';
-import { ChildProcess } from 'child_process';
 import {
   APIActionRowComponent,
   APIApplicationCommand,
@@ -47,10 +46,11 @@ import {
   RESTPostAPIApplicationCommandsJSONBody,
   Snowflake,
 } from 'discord-api-types/v9';
-import { EventEmitter } from 'events';
-import { AgentOptions } from 'https';
-import { Stream } from 'stream';
-import { MessagePort, Worker } from 'worker_threads';
+import { ChildProcess } from 'node:child_process';
+import { EventEmitter } from 'node:events';
+import { AgentOptions } from 'node:https';
+import { Stream } from 'node:stream';
+import { MessagePort, Worker } from 'node:worker_threads';
 import * as WebSocket from 'ws';
 import {
   ActivityTypes,
@@ -2751,6 +2751,7 @@ export class GuildStickerManager extends CachedManager<Snowflake, Sticker, Stick
 export class GuildMemberRoleManager extends DataManager<Snowflake, Role, RoleResolvable> {
   private constructor(member: GuildMember);
   public readonly hoist: Role | null;
+  public readonly icon: Role | null;
   public readonly color: Role | null;
   public readonly highest: Role;
   public readonly premiumSubscriberRole: Role | null;
@@ -4393,14 +4394,14 @@ export interface MessageEditOptions {
 }
 
 export interface MessageEmbedAuthor {
-  name?: string;
+  name: string;
   url?: string;
   iconURL?: string;
   proxyIconURL?: string;
 }
 
 export interface MessageEmbedFooter {
-  text?: string;
+  text: string;
   iconURL?: string;
   proxyIconURL?: string;
 }
@@ -4988,7 +4989,7 @@ export interface WidgetChannel {
 
 export interface WelcomeChannelData {
   description: string;
-  channel: GuildChannelResolvable;
+  channel: TextChannel | NewsChannel | StoreChannel | Snowflake;
   emoji?: EmojiIdentifierResolvable;
 }
 
