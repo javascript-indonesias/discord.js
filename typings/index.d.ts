@@ -1448,7 +1448,7 @@ export class MessageCollector extends Collector<Snowflake, Message> {
 export class MessageComponentInteraction extends Interaction {
   protected constructor(client: Client, data: RawMessageComponentInteractionData);
   public readonly channel: TextBasedChannels | null;
-  public readonly component: MessageActionRowComponent | Exclude<APIMessageComponent, APIActionRowComponent> | null;
+  public readonly component: MessageActionRowComponent | Exclude<APIMessageComponent, APIActionRowComponent>;
   public componentType: Exclude<MessageComponentType, 'ACTION_ROW'>;
   public customId: string;
   public channelId: Snowflake;
@@ -2121,6 +2121,7 @@ export class Util extends null {
   public static basename(path: string, ext?: string): string;
   public static binaryToId(num: string): Snowflake;
   public static cleanContent(str: string, channel: TextBasedChannels): string;
+  /** @deprecated Use {@link MessageOptions.allowedMentions} to control mentions in a message instead. */
   public static removeMentions(str: string): string;
   public static cloneObject(obj: unknown): unknown;
   public static delayFor(ms: number): Promise<void>;
