@@ -1,0 +1,14 @@
+name: 'Issue/PR Labeler'
+on:
+  pull_request:
+  issues:
+    types:
+      - opened
+      - edited
+jobs:
+  triage:
+    name: Triage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Automatically label Issues/PRs
+        uses: fuxingloh/multi-labeler@v1
