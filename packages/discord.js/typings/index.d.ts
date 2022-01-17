@@ -1,8 +1,12 @@
 import {
+  ActionRow,
+  ActionRowComponent,
   blockQuote,
   bold,
+  ButtonComponent,
   channelMention,
   codeBlock,
+  Component,
   formatEmoji,
   hideLinkEmbed,
   hyperlink,
@@ -11,6 +15,7 @@ import {
   memberNicknameMention,
   quote,
   roleMention,
+  SelectMenuComponent,
   spoiler,
   strikethrough,
   time,
@@ -28,7 +33,6 @@ import {
   APIApplicationCommandPermission,
   APIAuditLogChange,
   APIButtonComponent,
-  APIChannel,
   APIEmbed,
   APIEmoji,
   APIInteractionDataResolvedChannel,
@@ -184,7 +188,7 @@ export abstract class AnonymousGuild extends BaseGuild {
   protected constructor(client: Client, data: RawAnonymousGuildData, immediatePatch?: boolean);
   public banner: string | null;
   public description: string | null;
-  public nsfwLevel: GuildNSFWLevel;
+  public nsfwLevel: GuildNSFWLevelKey;
   public splash: string | null;
   public vanityURLCode: string | null;
   public verificationLevel: GuildVerificationLevelKey;
@@ -320,6 +324,17 @@ export type GuildCacheMessage<Cached extends CacheType> = CacheTypeReducer<
   Message | APIMessage
 >;
 
+export interface InteractionResponseFields<Cached extends CacheType = CacheType> {
+  reply(options: InteractionReplyOptions & { fetchReply: true }): Promise<GuildCacheMessage<Cached>>;
+  reply(options: string | MessagePayload | InteractionReplyOptions): Promise<void>;
+  deleteReply(): Promise<void>;
+  editReply(options: string | MessagePayload | WebhookEditMessageOptions): Promise<GuildCacheMessage<Cached>>;
+  deferReply(options: InteractionDeferReplyOptions & { fetchReply: true }): Promise<GuildCacheMessage<Cached>>;
+  deferReply(options?: InteractionDeferReplyOptions): Promise<void>;
+  fetchReply(): Promise<GuildCacheMessage<Cached>>;
+  followUp(options: string | MessagePayload | InteractionReplyOptions): Promise<GuildCacheMessage<Cached>>;
+}
+
 export abstract class CommandInteraction<Cached extends CacheType = CacheType> extends Interaction<Cached> {
   public readonly command: ApplicationCommand | ApplicationCommand<{ guild: GuildResolvable }> | null;
   public options: Omit<
@@ -424,13 +439,6 @@ export class BaseGuildVoiceChannel extends GuildChannel {
   public fetchInvites(cache?: boolean): Promise<Collection<string, Invite>>;
 }
 
-export class BaseMessageComponent {
-  protected constructor(data?: BaseMessageComponent | BaseMessageComponentOptions);
-  public type: MessageComponentTypeKey | null;
-  private static create(data: MessageComponentOptions, client?: Client | WebhookClient): MessageComponent | undefined;
-  private static resolveType(type: MessageComponentTypeResolvable): MessageComponentTypeKey;
-}
-
 export class BitField<S extends string, N extends number | bigint = number> {
   public constructor(bits?: BitFieldResolvable<S, N>);
   public bitfield: N;
@@ -454,10 +462,10 @@ export class ButtonInteraction<Cached extends CacheType = CacheType> extends Mes
   private constructor(client: Client, data: RawMessageButtonInteractionData);
   public readonly component: CacheTypeReducer<
     Cached,
-    MessageButton,
+    ButtonComponent,
     APIButtonComponent,
-    MessageButton | APIButtonComponent,
-    MessageButton | APIButtonComponent
+    ButtonComponent | APIButtonComponent,
+    ButtonComponent | APIButtonComponent
   >;
   public componentType: 'Button';
   public inGuild(): this is ButtonInteraction<'raw' | 'cached'>;
@@ -503,10 +511,7 @@ export class CategoryChannel extends GuildChannel {
     name: string,
     options: CategoryCreateChannelOptions & { type: 'GuildStore' | ChannelType.GuildStore },
   ): Promise<StoreChannel>;
-  public createChannel(
-    name: string,
-    options?: CategoryCreateChannelOptions,
-  ): Promise<Exclude<NonThreadGuildBasedChannel, CategoryChannel>>;
+  public createChannel(name: string, options?: CategoryCreateChannelOptions): Promise<TextChannel>;
 }
 
 export type CategoryChannelResolvable = Snowflake | CategoryChannel;
@@ -693,8 +698,8 @@ export interface ApplicationCommandInteractionOptionResolver<Cached extends Cach
   extends CommandInteractionOptionResolver<Cached> {
   getSubcommand(required?: true): string;
   getSubcommand(required: boolean): string | null;
-  getSubcommandGroup(required?: true): string;
-  getSubcommandGroup(required: boolean): string | null;
+  getSubcommandGroup(required: true): string;
+  getSubcommandGroup(required?: boolean): string | null;
   getBoolean(name: string, required: true): boolean;
   getBoolean(name: string, required?: boolean): boolean | null;
   getChannel(name: string, required: true): NonNullable<CommandInteractionOption<Cached>['channel']>;
@@ -707,8 +712,7 @@ export interface ApplicationCommandInteractionOptionResolver<Cached extends Cach
   getNumber(name: string, required?: boolean): number | null;
   getUser(name: string, required: true): NonNullable<CommandInteractionOption<Cached>['user']>;
   getUser(name: string, required?: boolean): NonNullable<CommandInteractionOption<Cached>['user']> | null;
-  getMember(name: string, required: true): NonNullable<CommandInteractionOption<Cached>['member']>;
-  getMember(name: string, required?: boolean): NonNullable<CommandInteractionOption<Cached>['member']> | null;
+  getMember(name: string): NonNullable<CommandInteractionOption<Cached>['member']> | null;
   getRole(name: string, required: true): NonNullable<CommandInteractionOption<Cached>['role']>;
   getRole(name: string, required?: boolean): NonNullable<CommandInteractionOption<Cached>['role']> | null;
   getMentionable(
@@ -769,8 +773,8 @@ export class CommandInteractionOptionResolver<Cached extends CacheType = CacheTy
 
   public getSubcommand(required?: true): string;
   public getSubcommand(required: boolean): string | null;
-  public getSubcommandGroup(required?: true): string;
-  public getSubcommandGroup(required: boolean): string | null;
+  public getSubcommandGroup(required: true): string;
+  public getSubcommandGroup(required?: boolean): string | null;
   public getBoolean(name: string, required: true): boolean;
   public getBoolean(name: string, required?: boolean): boolean | null;
   public getChannel(name: string, required: true): NonNullable<CommandInteractionOption<Cached>['channel']>;
@@ -783,8 +787,7 @@ export class CommandInteractionOptionResolver<Cached extends CacheType = CacheTy
   public getNumber(name: string, required?: boolean): number | null;
   public getUser(name: string, required: true): NonNullable<CommandInteractionOption<Cached>['user']>;
   public getUser(name: string, required?: boolean): NonNullable<CommandInteractionOption<Cached>['user']> | null;
-  public getMember(name: string, required: true): NonNullable<CommandInteractionOption<Cached>['member']>;
-  public getMember(name: string, required?: boolean): NonNullable<CommandInteractionOption<Cached>['member']> | null;
+  public getMember(name: string): NonNullable<CommandInteractionOption<Cached>['member']> | null;
   public getRole(name: string, required: true): NonNullable<CommandInteractionOption<Cached>['role']>;
   public getRole(name: string, required?: boolean): NonNullable<CommandInteractionOption<Cached>['role']> | null;
   public getMentionable(
@@ -1335,6 +1338,7 @@ export class Interaction<Cached extends CacheType = CacheType> extends Base {
   public isUserContextMenuCommand(): this is UserContextMenuCommandInteraction<Cached>;
   public isMessageComponent(): this is MessageComponentInteraction<Cached>;
   public isSelectMenu(): this is SelectMenuInteraction<Cached>;
+  public isRepliable(): this is this & InteractionResponseFields<Cached>;
 }
 
 export class InteractionCollector<T extends Interaction> extends Collector<Snowflake, T> {
@@ -1344,7 +1348,7 @@ export class InteractionCollector<T extends Interaction> extends Collector<Snowf
   private _handleGuildDeletion(guild: Guild): void;
 
   public channelId: Snowflake | null;
-  public componentType: MessageComponentTypeKey | null;
+  public componentType: ComponentTypeKey | null;
   public readonly endReason: string | null;
   public guildId: Snowflake | null;
   public interactionType: InteractionType | null;
@@ -1373,8 +1377,8 @@ export class InteractionWebhook extends PartialWebhookMixin() {
 
 export class Invite extends Base {
   private constructor(client: Client, data: RawInviteData);
-  public channel: NonThreadGuildBasedChannel | PartialGroupDMChannel;
-  public channelId: Snowflake;
+  public readonly channel: NonThreadGuildBasedChannel | PartialGroupDMChannel;
+  public channelId: Snowflake | null;
   public code: string;
   public readonly deletable: boolean;
   public readonly createdAt: Date | null;
@@ -1382,7 +1386,7 @@ export class Invite extends Base {
   public readonly expiresAt: Date | null;
   public readonly expiresTimestamp: number | null;
   public guild: InviteGuild | Guild | null;
-  public inviter: User | null;
+  public readonly inviter: User | null;
   public inviterId: Snowflake | null;
   public maxAge: number | null;
   public maxUses: number | null;
@@ -1476,7 +1480,7 @@ export class Message<Cached extends boolean = boolean> extends Base {
   public readonly channel: If<Cached, GuildTextBasedChannel, TextBasedChannel>;
   public channelId: Snowflake;
   public readonly cleanContent: string;
-  public components: MessageActionRow[];
+  public components: ActionRow<ActionRowComponent>[];
   public content: string;
   public readonly createdAt: Date;
   public createdTimestamp: number;
@@ -1503,7 +1507,7 @@ export class Message<Cached extends boolean = boolean> extends Base {
   public system: boolean;
   public readonly thread: ThreadChannel | null;
   public tts: boolean;
-  public type: MessageType;
+  public type: MessageTypeKey;
   public readonly url: string;
   public webhookId: Snowflake | null;
   public flags: Readonly<MessageFlags>;
@@ -1527,31 +1531,13 @@ export class Message<Cached extends boolean = boolean> extends Base {
   public react(emoji: EmojiIdentifierResolvable): Promise<MessageReaction>;
   public removeAttachments(): Promise<Message>;
   public reply(options: string | MessagePayload | ReplyMessageOptions): Promise<Message>;
-  public resolveComponent(customId: string): MessageActionRowComponent | null;
+  public resolveComponent(customId: string): ActionRowComponent | null;
   public startThread(options: StartThreadOptions): Promise<ThreadChannel>;
   public suppressEmbeds(suppress?: boolean): Promise<Message>;
   public toJSON(): unknown;
   public toString(): string;
   public unpin(): Promise<Message>;
   public inGuild(): this is Message<true> & this;
-}
-
-export class MessageActionRow extends BaseMessageComponent {
-  public constructor(data?: MessageActionRow | MessageActionRowOptions | APIActionRowComponent);
-  public type: 'ActionRow';
-  public components: MessageActionRowComponent[];
-  public addComponents(
-    ...components: MessageActionRowComponentResolvable[] | MessageActionRowComponentResolvable[][]
-  ): this;
-  public setComponents(
-    ...components: MessageActionRowComponentResolvable[] | MessageActionRowComponentResolvable[][]
-  ): this;
-  public spliceComponents(
-    index: number,
-    deleteCount: number,
-    ...components: MessageActionRowComponentResolvable[] | MessageActionRowComponentResolvable[][]
-  ): this;
-  public toJSON(): APIActionRowComponent;
 }
 
 export class MessageAttachment {
@@ -1576,25 +1562,6 @@ export class MessageAttachment {
   public toJSON(): unknown;
 }
 
-export class MessageButton extends BaseMessageComponent {
-  public constructor(data?: MessageButton | MessageButtonOptions | APIButtonComponent);
-  public customId: string | null;
-  public disabled: boolean;
-  public emoji: APIPartialEmoji | null;
-  public label: string | null;
-  public style: ButtonStyleKey | null;
-  public type: 'Button';
-  public url: string | null;
-  public setCustomId(customId: string): this;
-  public setDisabled(disabled?: boolean): this;
-  public setEmoji(emoji: EmojiIdentifierResolvable): this;
-  public setLabel(label: string): this;
-  public setStyle(style: MessageButtonStyleResolvable): this;
-  public setURL(url: string): this;
-  public toJSON(): APIButtonComponent;
-  private static resolveStyle(style: MessageButtonStyleResolvable): ButtonStyleKey;
-}
-
 export class MessageCollector extends Collector<Snowflake, Message> {
   public constructor(channel: TextBasedChannel, options?: MessageCollectorOptions);
   private _handleChannelDeletion(channel: NonThreadGuildBasedChannel): void;
@@ -1613,10 +1580,10 @@ export class MessageComponentInteraction<Cached extends CacheType = CacheType> e
   protected constructor(client: Client, data: RawMessageComponentInteractionData);
   public readonly component: CacheTypeReducer<
     Cached,
-    MessageActionRowComponent,
+    ActionRowComponent,
     Exclude<APIMessageComponent, APIActionRowComponent>,
-    MessageActionRowComponent | Exclude<APIMessageComponent, APIActionRowComponent>,
-    MessageActionRowComponent | Exclude<APIMessageComponent, APIActionRowComponent>
+    ActionRowComponent | Exclude<APIMessageComponent, APIActionRowComponent>,
+    ActionRowComponent | Exclude<APIMessageComponent, APIActionRowComponent>
   >;
   public componentType: Exclude<keyof typeof ComponentType, 'ActionRow'>;
   public customId: string;
@@ -1642,7 +1609,7 @@ export class MessageComponentInteraction<Cached extends CacheType = CacheType> e
   public update(options: InteractionUpdateOptions & { fetchReply: true }): Promise<GuildCacheMessage<Cached>>;
   public update(options: string | MessagePayload | InteractionUpdateOptions): Promise<void>;
 
-  public static resolveType(type: MessageComponentTypeResolvable): MessageComponentTypeKey;
+  public static resolveType(type: MessageComponentTypeResolvable): ComponentTypeKey;
 }
 
 export class MessageContextMenuCommandInteraction<
@@ -1774,30 +1741,6 @@ export class MessageReaction {
   public remove(): Promise<MessageReaction>;
   public fetch(): Promise<MessageReaction>;
   public toJSON(): unknown;
-}
-
-export class MessageSelectMenu extends BaseMessageComponent {
-  public constructor(data?: MessageSelectMenu | MessageSelectMenuOptions | APISelectMenuComponent);
-  public customId: string | null;
-  public disabled: boolean;
-  public maxValues: number | null;
-  public minValues: number | null;
-  public options: MessageSelectOption[];
-  public placeholder: string | null;
-  public type: 'SelectMenu';
-  public addOptions(...options: MessageSelectOptionData[] | MessageSelectOptionData[][]): this;
-  public setOptions(...options: MessageSelectOptionData[] | MessageSelectOptionData[][]): this;
-  public setCustomId(customId: string): this;
-  public setDisabled(disabled?: boolean): this;
-  public setMaxValues(maxValues: number): this;
-  public setMinValues(minValues: number): this;
-  public setPlaceholder(placeholder: string): this;
-  public spliceOptions(
-    index: number,
-    deleteCount: number,
-    ...options: MessageSelectOptionData[] | MessageSelectOptionData[][]
-  ): this;
-  public toJSON(): APISelectMenuComponent;
 }
 
 export class NewsChannel extends BaseGuildTextChannel {
@@ -1951,10 +1894,10 @@ export class SelectMenuInteraction<Cached extends CacheType = CacheType> extends
   public constructor(client: Client, data: RawMessageSelectMenuInteractionData);
   public readonly component: CacheTypeReducer<
     Cached,
-    MessageSelectMenu,
+    SelectMenuComponent,
     APISelectMenuComponent,
-    MessageSelectMenu | APISelectMenuComponent,
-    MessageSelectMenu | APISelectMenuComponent
+    SelectMenuComponent | APISelectMenuComponent,
+    SelectMenuComponent | APISelectMenuComponent
   >;
   public componentType: 'SelectMenu';
   public values: string[];
@@ -2865,7 +2808,7 @@ export class ApplicationCommandPermissionsManager<
   private static transformPermissions(
     permissions: ApplicationCommandPermissionData,
     received: true,
-  ): Omit<APIApplicationCommandPermission, 'type'> & { type: keyof ApplicationCommandPermissionType };
+  ): Omit<APIApplicationCommandPermission, 'type'> & { type: keyof typeof ApplicationCommandPermissionType };
   private static transformPermissions(permissions: ApplicationCommandPermissionData): APIApplicationCommandPermission;
 }
 
@@ -3531,7 +3474,7 @@ export interface ThreadMemberFetchOptions extends BaseFetchOptions {
 }
 
 export interface BaseMessageComponentOptions {
-  type?: MessageComponentTypeKey | ComponentType;
+  type?: ComponentTypeKey | ComponentType;
 }
 
 export type BitFieldResolvable<T extends string, N extends number | bigint> =
@@ -4589,7 +4532,7 @@ export type IntegrationType = 'twitch' | 'youtube' | 'discord';
 export interface InteractionCollectorOptions<T extends Interaction, Cached extends CacheType = CacheType>
   extends CollectorOptions<[T]> {
   channel?: TextBasedChannel;
-  componentType?: ComponentType | MessageComponentTypeKey;
+  componentType?: ComponentType | ComponentTypeKey;
   guild?: Guild;
   interactionType?: InteractionTypeKey | InteractionType;
   max?: number;
@@ -4696,16 +4639,14 @@ export type MemberMention = UserMention | `<@!${Snowflake}>`;
 
 export type TeamMemberMembershipStateKey = keyof typeof TeamMemberMembershipState;
 
-export type MessageActionRowComponent = MessageButton | MessageSelectMenu;
-
-export type MessageActionRowComponentOptions =
+export type ActionRowComponentOptions =
   | (Required<BaseMessageComponentOptions> & MessageButtonOptions)
   | (Required<BaseMessageComponentOptions> & MessageSelectMenuOptions);
 
-export type MessageActionRowComponentResolvable = MessageActionRowComponent | MessageActionRowComponentOptions;
+export type MessageActionRowComponentResolvable = ActionRowComponent | ActionRowComponentOptions;
 
-export interface MessageActionRowOptions extends BaseMessageComponentOptions {
-  components: MessageActionRowComponentResolvable[];
+export interface ActionRowOptions extends BaseMessageComponentOptions {
+  components: ActionRowComponent[];
 }
 
 export interface MessageActivity {
@@ -4740,7 +4681,7 @@ export interface MessageCollectorOptions extends CollectorOptions<[Message]> {
   maxProcessed?: number;
 }
 
-export type MessageComponent = BaseMessageComponent | MessageActionRow | MessageButton | MessageSelectMenu;
+export type MessageComponent = Component | ActionRow<ActionRowComponent> | ButtonComponent | SelectMenuComponent;
 
 export type MessageComponentCollectorOptions<T extends MessageComponentInteraction> = Omit<
   InteractionCollectorOptions<T>,
@@ -4754,13 +4695,13 @@ export type MessageChannelComponentCollectorOptions<T extends MessageComponentIn
 
 export type MessageComponentOptions =
   | BaseMessageComponentOptions
-  | MessageActionRowOptions
+  | ActionRowOptions
   | MessageButtonOptions
   | MessageSelectMenuOptions;
 
-export type MessageComponentTypeKey = keyof typeof ComponentType;
+export type ComponentTypeKey = keyof typeof ComponentType;
 
-export type MessageComponentTypeResolvable = MessageComponentTypeKey | ComponentType;
+export type MessageComponentTypeResolvable = ComponentTypeKey | ComponentType;
 
 export interface MessageEditOptions {
   attachments?: MessageAttachment[];
@@ -4769,7 +4710,7 @@ export interface MessageEditOptions {
   files?: (FileOptions | BufferResolvable | Stream | MessageAttachment)[];
   flags?: BitFieldResolvable<MessageFlagsString, number>;
   allowedMentions?: MessageMentionOptions;
-  components?: (MessageActionRow | (Required<BaseMessageComponentOptions> & MessageActionRowOptions))[];
+  components?: (ActionRow<ActionRowComponent> | (Required<BaseMessageComponentOptions> & ActionRowOptions))[];
 }
 
 export interface MessageEmbedAuthor {
@@ -4868,7 +4809,7 @@ export interface MessageOptions {
   nonce?: string | number;
   content?: string | null;
   embeds?: (MessageEmbed | MessageEmbedOptions | APIEmbed)[];
-  components?: (MessageActionRow | (Required<BaseMessageComponentOptions> & MessageActionRowOptions))[];
+  components?: (ActionRow<ActionRowComponent> | (Required<BaseMessageComponentOptions> & ActionRowOptions))[];
   allowedMentions?: MessageMentionOptions;
   files?: (FileOptions | BufferResolvable | Stream | MessageAttachment)[];
   reply?: ReplyOptions;
@@ -5545,3 +5486,10 @@ export {
   StickerFormatType,
   WebhookType,
 } from 'discord-api-types/v9';
+export {
+  ActionRow,
+  ButtonComponent,
+  SelectMenuComponent,
+  SelectMenuOption,
+  ActionRowComponent,
+} from '@discordjs/builders';
