@@ -740,6 +740,23 @@ client.on('interactionCreate', async interaction => {
   // @ts-expect-error
   await interaction.reply({ content: 'Hi!', components: [button] });
 
+  await interaction.reply({
+    content: 'test',
+    components: [
+      {
+        components: [
+          {
+            custom_id: 'abc',
+            label: 'abc',
+            style: ButtonStyle.Primary,
+            type: ComponentType.Button,
+          },
+        ],
+        type: ComponentType.ActionRow,
+      },
+    ],
+  });
+
   if (interaction.isMessageComponent()) {
     expectType<Snowflake>(interaction.channelId);
   }
@@ -947,8 +964,9 @@ expectType<Promise<Collection<Snowflake, GuildEmoji>>>(guildEmojiManager.fetch(u
 expectType<Promise<GuildEmoji>>(guildEmojiManager.fetch('0'));
 
 declare const typing: Typing;
-expectType<PartialUser>(typing.user);
+expectType<User | PartialUser>(typing.user);
 if (typing.user.partial) expectType<null>(typing.user.username);
+if (!typing.user.partial) expectType<string>(typing.user.tag);
 
 expectType<TextBasedChannel>(typing.channel);
 if (typing.channel.partial) expectType<undefined>(typing.channel.lastMessageId);

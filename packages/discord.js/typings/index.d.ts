@@ -94,6 +94,7 @@ import {
   AuditLogEvent,
   APIMessageComponentEmoji,
   EmbedType,
+  APIActionRowComponentTypes,
 } from 'discord-api-types/v9';
 import { ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
@@ -324,6 +325,9 @@ export type GuildCacheMessage<Cached extends CacheType> = CacheTypeReducer<
 >;
 
 export interface InteractionResponseFields<Cached extends CacheType = CacheType> {
+  deferred: boolean;
+  ephemeral: boolean | null;
+  replied: boolean;
   reply(options: InteractionReplyOptions & { fetchReply: true }): Promise<GuildCacheMessage<Cached>>;
   reply(options: string | MessagePayload | InteractionReplyOptions): Promise<void>;
   deleteReply(): Promise<void>;
@@ -883,7 +887,8 @@ export class EnumResolvers extends null {
 export class DMChannel extends TextBasedChannelMixin(Channel, ['bulkDelete']) {
   private constructor(client: Client, data?: RawDMChannelData);
   public messages: MessageManager;
-  public recipient: User;
+  public recipientId: Snowflake;
+  public get recipient(): User | null;
   public type: ChannelType.DM;
   public fetch(force?: boolean): Promise<this>;
 }
@@ -2256,7 +2261,7 @@ export class ThreadMemberFlagsBitField extends BitField<ThreadMemberFlagsString>
 export class Typing extends Base {
   private constructor(channel: TextBasedChannel, user: PartialUser, data?: RawTypingData);
   public channel: TextBasedChannel;
-  public user: PartialUser;
+  public user: User | PartialUser;
   public startedTimestamp: number;
   public get startedAt(): Date;
   public get guild(): Guild | null;
@@ -4599,7 +4604,11 @@ export interface MessageOptions {
   nonce?: string | number;
   content?: string | null;
   embeds?: (Embed | APIEmbed)[];
-  components?: (ActionRow<ActionRowComponent> | (Required<BaseComponentData> & ActionRowData))[];
+  components?: (
+    | ActionRow<ActionRowComponent>
+    | (Required<BaseComponentData> & ActionRowData)
+    | APIActionRowComponent<APIActionRowComponentTypes>
+  )[];
   allowedMentions?: MessageMentionOptions;
   files?: (FileOptions | BufferResolvable | Stream | MessageAttachment)[];
   reply?: ReplyOptions;
