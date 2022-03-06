@@ -19,6 +19,7 @@ import {
   PermissionFlagsBits,
   AuditLogEvent,
   ButtonStyle,
+  TextInputStyle,
 } from 'discord-api-types/v9';
 import {
   ApplicationCommand,
@@ -58,6 +59,7 @@ import {
   MessageCollector,
   MessageComponentInteraction,
   MessageReaction,
+  Modal,
   NewsChannel,
   Options,
   PartialTextBasedChannelFields,
@@ -105,9 +107,9 @@ import {
   CategoryChannelChildManager,
   ActionRowData,
   MessageActionRowComponentData,
+  Embed,
 } from '.';
 import { expectAssignable, expectDeprecated, expectNotAssignable, expectNotType, expectType } from 'tsd';
-import { Embed } from '@discordjs/builders';
 
 // Test type transformation:
 declare const serialize: <T>(value: T) => Serialized<T>;
@@ -1340,6 +1342,11 @@ new ButtonComponent({
   style: ButtonStyle.Danger,
 });
 
+// @ts-expect-error
+new Embed().setColor('abc');
+
+new Embed().setColor('#ffffff');
+
 expectNotAssignable<ActionRowData<MessageActionRowComponentData>>({
   type: ComponentType.ActionRow,
   components: [
@@ -1353,3 +1360,25 @@ declare const chatInputInteraction: ChatInputCommandInteraction;
 
 expectType<MessageAttachment>(chatInputInteraction.options.getAttachment('attachment', true));
 expectType<MessageAttachment | null>(chatInputInteraction.options.getAttachment('attachment'));
+
+declare const modal: Modal;
+
+chatInputInteraction.showModal(modal);
+
+chatInputInteraction.showModal({
+  title: 'abc',
+  custom_id: 'abc',
+  components: [
+    {
+      components: [
+        {
+          custom_id: 'aa',
+          label: 'label',
+          style: TextInputStyle.Short,
+          type: ComponentType.TextInput,
+        },
+      ],
+      type: ComponentType.ActionRow,
+    },
+  ],
+});
