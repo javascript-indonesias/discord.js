@@ -110,7 +110,7 @@ import {
   APIEmbedAuthor,
   APIEmbedFooter,
   APIEmbedImage,
-} from 'discord-api-types/v9';
+} from 'discord-api-types/v10';
 import { ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { Stream } from 'node:stream';
@@ -613,6 +613,7 @@ export class Embed {
   private constructor(data: APIEmbed);
   public readonly data: Readonly<APIEmbed>;
   public get fields(): APIEmbedField[] | null;
+  public get footer(): EmbedFooterData | null;
   public get title(): string | null;
   public get description(): string | null;
   public get url(): string | null;
@@ -5335,7 +5336,7 @@ export {
   ThreadMemberFlags,
   UserFlags,
   WebhookType,
-} from 'discord-api-types/v9';
+} from 'discord-api-types/v10';
 export {
   UnsafeButtonBuilder,
   UnsafeSelectMenuBuilder,
