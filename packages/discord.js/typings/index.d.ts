@@ -117,6 +117,7 @@ import {
   LocalizationMap,
   LocaleString,
   MessageActivityType,
+  APIAttachment,
 } from 'discord-api-types/v10';
 import { ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
@@ -181,6 +182,14 @@ import {
   RawWidgetData,
   RawWidgetMemberData,
 } from './rawDataTypes';
+
+declare module 'node:events' {
+  class EventEmitter {
+    // Add type overloads for client events.
+    public static once<K extends keyof ClientEvents>(eventEmitter: Client, eventName: K): Promise<ClientEvents[K]>;
+    public static on<K extends keyof ClientEvents>(eventEmitter: Client, eventName: K): AsyncIterator<ClientEvents[K]>;
+  }
+}
 
 //#region Classes
 
@@ -1147,6 +1156,7 @@ export class GuildAuditLogs<T extends GuildAuditLogsResolvable = null> {
   private constructor(guild: Guild, data: RawGuildAuditLogData);
   private webhooks: Collection<Snowflake, Webhook>;
   private integrations: Collection<Snowflake | string, Integration>;
+  private guildScheduledEvents: Collection<Snowflake, GuildScheduledEvent>;
   public entries: Collection<Snowflake, GuildAuditLogsEntry<T>>;
   public static Entry: typeof GuildAuditLogsEntry;
   public toJSON(): unknown;
@@ -1687,9 +1697,22 @@ export class Message<Cached extends boolean = boolean> extends Base {
   public inGuild(): this is Message<true> & this;
 }
 
-export class Attachment {
+export class AttachmentBuilder {
   public constructor(attachment: BufferResolvable | Stream, name?: string, data?: RawAttachmentData);
+  public attachment: BufferResolvable | Stream;
+  public description: string | null;
+  public name: string | null;
+  public get spoiler(): boolean;
+  public setDescription(description: string): this;
+  public setFile(attachment: BufferResolvable | Stream, name?: string): this;
+  public setName(name: string): this;
+  public setSpoiler(spoiler?: boolean): this;
+  public toJSON(): unknown;
+  public static from(other: JSONEncodable<AttachmentPayload>): AttachmentBuilder;
+}
 
+export class Attachment {
+  private constructor(data: APIAttachment);
   public attachment: BufferResolvable | Stream;
   public contentType: string | null;
   public description: string | null;
@@ -1702,10 +1725,6 @@ export class Attachment {
   public get spoiler(): boolean;
   public url: string;
   public width: number | null;
-  public setDescription(description: string): this;
-  public setFile(attachment: BufferResolvable | Stream, name?: string): this;
-  public setName(name: string): this;
-  public setSpoiler(spoiler?: boolean): this;
   public toJSON(): unknown;
 }
 
@@ -1829,7 +1848,9 @@ export class MessagePayload {
     options: string | MessageOptions | WebhookMessageOptions,
     extra?: MessageOptions | WebhookMessageOptions,
   ): MessagePayload;
-  public static resolveFile(fileLike: BufferResolvable | Stream | FileOptions | Attachment): Promise<RawFile>;
+  public static resolveFile(
+    fileLike: BufferResolvable | Stream | AttachmentPayload | JSONEncodable<AttachmentPayload>,
+  ): Promise<RawFile>;
 
   public makeContent(): string | undefined;
   public resolveBody(): this;
@@ -1852,11 +1873,29 @@ export class MessageReaction {
   public toJSON(): unknown;
 }
 
-export class ModalSubmitFieldsResolver {
+export interface BaseModalData {
+  customId: string;
+  type: ComponentType;
+}
+
+export interface TextInputModalData extends BaseModalData {
+  type: ComponentType.TextInput;
+  value: string;
+}
+
+export interface ActionRowModalData {
+  type: ComponentType.ActionRow;
+  components: ModalData[];
+}
+
+export type ModalData = TextInputModalData | ActionRowModalData;
+
+export class ModalSubmitFields {
   constructor(components: ModalActionRowComponent[][]);
   public components: ActionRow<ModalActionRowComponent>;
   public fields: Collection<string, ModalActionRowComponent>;
-  public getField(customId: string): ModalActionRowComponent;
+  public getField<T extends ComponentType>(customId: string, type: T): { type: T } & ModalData;
+  public getField(customId: string, type?: ComponentType): ModalData;
   public getTextInputValue(customId: string): string;
 }
 
@@ -1877,8 +1916,8 @@ export interface ModalMessageModalSubmitInteraction<Cached extends CacheType = C
 export class ModalSubmitInteraction<Cached extends CacheType = CacheType> extends Interaction<Cached> {
   private constructor(client: Client, data: APIModalSubmitInteraction);
   public readonly customId: string;
-  public readonly components: ActionRow<ModalActionRowComponent>[];
-  public readonly fields: ModalSubmitFieldsResolver;
+  public readonly components: ActionRowModalData[];
+  public readonly fields: ModalSubmitFields;
   public deferred: boolean;
   public ephemeral: boolean | null;
   public message: GuildCacheMessage<Cached> | null;
@@ -3172,7 +3211,7 @@ export class GuildStickerManager extends CachedManager<Snowflake, Sticker, Stick
   private constructor(guild: Guild, iterable?: Iterable<RawStickerData>);
   public guild: Guild;
   public create(
-    file: BufferResolvable | Stream | FileOptions | Attachment,
+    file: BufferResolvable | Stream | AttachmentPayload | JSONEncodable<AttachmentBuilder>,
     name: string,
     tags: string,
     options?: GuildStickerCreateOptions,
@@ -3710,6 +3749,7 @@ export interface CategoryCreateChannelOptions {
   rateLimitPerUser?: number;
   position?: number;
   rtcRegion?: string;
+  videoQualityMode?: VideoQualityMode;
   reason?: string;
 }
 
@@ -3723,7 +3763,7 @@ export interface ChannelData {
   name?: string;
   type?: Pick<typeof ChannelType, 'GuildText' | 'GuildNews'>;
   position?: number;
-  topic?: string;
+  topic?: string | null;
   nsfw?: boolean;
   bitrate?: number;
   userLimit?: number;
@@ -3911,7 +3951,7 @@ export interface CommandInteractionOption<Cached extends CacheType = CacheType> 
   member?: CacheTypeReducer<Cached, GuildMember, APIInteractionDataResolvedGuildMember>;
   channel?: CacheTypeReducer<Cached, GuildBasedChannel, APIInteractionDataResolvedChannel>;
   role?: CacheTypeReducer<Cached, Role, APIRole>;
-  attachment?: Attachment;
+  attachment?: AttachmentBuilder;
   message?: GuildCacheMessage<Cached>;
 }
 
@@ -3921,7 +3961,7 @@ export interface CommandInteractionResolvedData<Cached extends CacheType = Cache
   roles?: Collection<Snowflake, CacheTypeReducer<Cached, Role, APIRole>>;
   channels?: Collection<Snowflake, CacheTypeReducer<Cached, AnyChannel, APIInteractionDataResolvedChannel>>;
   messages?: Collection<Snowflake, CacheTypeReducer<Cached, Message, APIMessage>>;
-  attachments?: Collection<Snowflake, Attachment>;
+  attachments?: Collection<Snowflake, AttachmentBuilder>;
 }
 
 export declare const Colors: {
@@ -4213,7 +4253,7 @@ export interface FetchThreadsOptions {
   active?: boolean;
 }
 
-export interface FileOptions {
+export interface AttachmentPayload {
   attachment: BufferResolvable | Stream;
   name?: string;
   description?: string;
@@ -4340,7 +4380,7 @@ export type GuildBanResolvable = GuildBan | UserResolvable;
 export type GuildChannelResolvable = Snowflake | GuildBasedChannel;
 
 export interface GuildChannelCreateOptions extends Omit<CategoryCreateChannelOptions, 'type'> {
-  parent?: CategoryChannelResolvable;
+  parent?: CategoryChannelResolvable | null;
   type?: Exclude<
     ChannelType,
     | ChannelType.DM
@@ -4644,10 +4684,10 @@ export type MessageChannelComponentCollectorOptions<T extends MessageComponentIn
 >;
 
 export interface MessageEditOptions {
-  attachments?: Attachment[];
+  attachments?: JSONEncodable<AttachmentPayload>[];
   content?: string | null;
   embeds?: (JSONEncodable<APIEmbed> | APIEmbed)[] | null;
-  files?: (FileOptions | BufferResolvable | Stream | Attachment)[];
+  files?: (AttachmentPayload | BufferResolvable | Stream | AttachmentBuilder)[];
   flags?: BitFieldResolvable<MessageFlagsString, number>;
   allowedMentions?: MessageMentionOptions;
   components?: (
@@ -4698,10 +4738,10 @@ export interface MessageOptions {
     | APIActionRowComponent<APIMessageActionRowComponent>
   )[];
   allowedMentions?: MessageMentionOptions;
-  files?: (FileOptions | BufferResolvable | Stream | Attachment)[];
+  files?: (Attachment | AttachmentBuilder | BufferResolvable | Stream)[];
   reply?: ReplyOptions;
   stickers?: StickerResolvable[];
-  attachments?: Attachment[];
+  attachments?: (Attachment | AttachmentBuilder)[];
   flags?: BitFieldResolvable<Extract<MessageFlagsString, 'SuppressEmbeds'>, number>;
 }
 
@@ -4757,12 +4797,6 @@ export interface TextInputComponentData extends BaseComponentData {
   required?: boolean;
   value?: string;
   placeholder?: string;
-}
-
-export interface ModalData {
-  customId: string;
-  title: string;
-  components: (ActionRow<ModalActionRowComponent> | ActionRowData<ModalActionRowComponentData>)[];
 }
 
 export type MessageTarget =
@@ -4836,7 +4870,7 @@ export interface PartialChannelData {
     | ChannelType.GuildStageVoice
   >;
   name: string;
-  topic?: string;
+  topic?: string | null;
   nsfw?: boolean;
   bitrate?: number;
   userLimit?: number;
