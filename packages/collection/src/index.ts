@@ -29,8 +29,6 @@ export interface Collection<K, V> extends Map<K, V> {
  * an ID, for significantly improved performance and ease-of-use.
  */
 export class Collection<K, V> extends Map<K, V> {
-	public static readonly default: typeof Collection = Collection;
-
 	/**
 	 * Obtains the value of the given key if it exists, otherwise sets and returns the value provided by the default value generator.
 	 *
@@ -776,5 +774,3 @@ export type Keep<V> = { keep: true; value: V } | { keep: false };
  * @internal
  */
 export type Comparator<K, V> = (firstValue: V, secondValue: V, firstKey: K, secondKey: K) => number;
-
-export default Collection;

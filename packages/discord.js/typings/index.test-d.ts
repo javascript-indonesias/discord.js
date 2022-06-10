@@ -21,6 +21,7 @@ import {
   TextInputStyle,
   APITextInputComponent,
   APIEmbed,
+  ApplicationCommandType,
 } from 'discord-api-types/v10';
 import {
   ApplicationCommand,
@@ -94,7 +95,6 @@ import {
   GuildAuditLogsEntry,
   GuildAuditLogs,
   StageInstance,
-  PartialDMChannel,
   ActionRowBuilder,
   ButtonComponent,
   SelectMenuComponent,
@@ -123,8 +123,11 @@ import {
   UserMention,
   PartialGroupDMChannel,
   Attachment,
+  MessageContextMenuCommandInteraction,
+  UserContextMenuCommandInteraction,
+  AnyThreadChannel,
 } from '.';
-import { expectAssignable, expectDeprecated, expectNotAssignable, expectNotType, expectType } from 'tsd';
+import { expectAssignable, expectNotAssignable, expectNotType, expectType } from 'tsd';
 import { UnsafeButtonBuilder, UnsafeEmbedBuilder, UnsafeSelectMenuBuilder } from '@discordjs/builders';
 
 // Test type transformation:
@@ -558,11 +561,14 @@ client.on('guildCreate', async g => {
   }
 
   if (channel.isThread()) {
-    const fetchedMember = await channel.members.fetch({ member: '12345678' });
+    const fetchedMember = await channel.members.fetch('12345678');
+    const fetchedMember2 = await channel.members.fetch({ member: '12345678', cache: false, force: true });
     expectType<ThreadMember>(fetchedMember);
-    const fetchedMemberCol = await channel.members.fetch(true);
-    expectDeprecated(await channel.members.fetch(true));
+    expectType<ThreadMember>(fetchedMember2);
+    const fetchedMemberCol = await channel.members.fetch({ cache: true });
     expectType<Collection<Snowflake, ThreadMember>>(fetchedMemberCol);
+    // @ts-expect-error The `force` option cannot be used alongside fetching all thread members.
+    const fetchedMemberCol2 = await channel.members.fetch({ cache: true, force: false });
   }
 
   channel.setName('foo').then(updatedChannel => {
@@ -802,10 +808,20 @@ client.on('messageCreate', async message => {
   channel.send({ components: [row, buttonsRow, selectsRow], embeds: [embed, buildersEmbed, embedData] });
 });
 
+client.on('threadCreate', thread => {
+  if (thread.type === ChannelType.GuildPrivateThread) {
+    expectType<number>(thread.createdTimestamp);
+    expectType<Date>(thread.createdAt);
+  } else {
+    expectType<number | null>(thread.createdTimestamp);
+    expectType<Date | null>(thread.createdAt);
+  }
+});
+
 client.on('threadMembersUpdate', (addedMembers, removedMembers, thread) => {
   expectType<Collection<Snowflake, ThreadMember>>(addedMembers);
   expectType<Collection<Snowflake, ThreadMember | PartialThreadMember>>(removedMembers);
-  expectType<ThreadChannel>(thread);
+  expectType<AnyThreadChannel>(thread);
   const left = removedMembers.first();
   if (!left) return;
 
@@ -823,7 +839,11 @@ client.on('interactionCreate', async interaction => {
   expectType<Snowflake | null>(interaction.channelId);
   expectType<GuildMember | APIInteractionGuildMember | null>(interaction.member);
 
-  if (!interaction.isCommand()) return;
+  if (interaction.type === InteractionType.MessageComponent) {
+    expectType<Snowflake>(interaction.channelId);
+  }
+
+  if (interaction.type !== InteractionType.ApplicationCommand) return;
 
   void new ActionRowBuilder<MessageActionRowComponentBuilder>();
 
@@ -862,10 +882,6 @@ client.on('interactionCreate', async interaction => {
       },
     ],
   });
-
-  if (interaction.isMessageComponent()) {
-    expectType<Snowflake>(interaction.channelId);
-  }
 });
 
 client.login('absolutely-valid-token');
@@ -1153,6 +1169,31 @@ client.on('interactionCreate', interaction => {
 });
 
 client.on('interactionCreate', async interaction => {
+  if (interaction.type === InteractionType.MessageComponent) {
+    expectType<SelectMenuInteraction | ButtonInteraction>(interaction);
+    expectType<MessageActionRowComponent | APIButtonComponent | APISelectMenuComponent>(interaction.component);
+    expectType<Message>(interaction.message);
+    if (interaction.inCachedGuild()) {
+      expectAssignable<MessageComponentInteraction>(interaction);
+      expectType<MessageActionRowComponent>(interaction.component);
+      expectType<Message<true>>(interaction.message);
+      expectType<Guild>(interaction.guild);
+      expectAssignable<Promise<Message>>(interaction.reply({ fetchReply: true }));
+    } else if (interaction.inRawGuild()) {
+      expectAssignable<MessageComponentInteraction>(interaction);
+      expectType<APIButtonComponent | APISelectMenuComponent>(interaction.component);
+      expectType<Message<false>>(interaction.message);
+      expectType<null>(interaction.guild);
+      expectType<Promise<Message<false>>>(interaction.reply({ fetchReply: true }));
+    } else if (interaction.inGuild()) {
+      expectAssignable<MessageComponentInteraction>(interaction);
+      expectType<MessageActionRowComponent | APIButtonComponent | APISelectMenuComponent>(interaction.component);
+      expectType<Message>(interaction.message);
+      expectType<Guild | null>(interaction.guild);
+      expectType<Promise<Message>>(interaction.reply({ fetchReply: true }));
+    }
+  }
+
   if (interaction.inCachedGuild()) {
     expectAssignable<GuildMember>(interaction.member);
     expectNotType<ChatInputCommandInteraction<'cached'>>(interaction);
@@ -1170,8 +1211,12 @@ client.on('interactionCreate', async interaction => {
     expectType<string | null>(interaction.guildId);
   }
 
-  if (interaction.isContextMenuCommand()) {
-    expectType<ContextMenuCommandInteraction>(interaction);
+  if (
+    interaction.type === InteractionType.ApplicationCommand &&
+    (interaction.commandType === ApplicationCommandType.User ||
+      interaction.commandType === ApplicationCommandType.Message)
+  ) {
+    expectType<MessageContextMenuCommandInteraction | UserContextMenuCommandInteraction>(interaction);
     if (interaction.inCachedGuild()) {
       expectAssignable<ContextMenuCommandInteraction>(interaction);
       expectAssignable<Guild>(interaction.guild);
@@ -1185,7 +1230,10 @@ client.on('interactionCreate', async interaction => {
     }
   }
 
-  if (interaction.isMessageContextMenuCommand()) {
+  if (
+    interaction.type === InteractionType.ApplicationCommand &&
+    interaction.commandType === ApplicationCommandType.Message
+  ) {
     expectType<Message>(interaction.targetMessage);
     if (interaction.inCachedGuild()) {
       expectType<Message<true>>(interaction.targetMessage);
@@ -1196,7 +1244,7 @@ client.on('interactionCreate', async interaction => {
     }
   }
 
-  if (interaction.isButton()) {
+  if (interaction.type === InteractionType.MessageComponent && interaction.componentType === ComponentType.Button) {
     expectType<ButtonInteraction>(interaction);
     expectType<ButtonComponent | APIButtonComponent>(interaction.component);
     expectType<Message>(interaction.message);
@@ -1221,32 +1269,7 @@ client.on('interactionCreate', async interaction => {
     }
   }
 
-  if (interaction.isMessageComponent()) {
-    expectType<MessageComponentInteraction>(interaction);
-    expectType<MessageActionRowComponent | APIButtonComponent | APISelectMenuComponent>(interaction.component);
-    expectType<Message>(interaction.message);
-    if (interaction.inCachedGuild()) {
-      expectAssignable<MessageComponentInteraction>(interaction);
-      expectType<MessageActionRowComponent>(interaction.component);
-      expectType<Message<true>>(interaction.message);
-      expectType<Guild>(interaction.guild);
-      expectAssignable<Promise<Message>>(interaction.reply({ fetchReply: true }));
-    } else if (interaction.inRawGuild()) {
-      expectAssignable<MessageComponentInteraction>(interaction);
-      expectType<APIButtonComponent | APISelectMenuComponent>(interaction.component);
-      expectType<Message<false>>(interaction.message);
-      expectType<null>(interaction.guild);
-      expectType<Promise<Message<false>>>(interaction.reply({ fetchReply: true }));
-    } else if (interaction.inGuild()) {
-      expectAssignable<MessageComponentInteraction>(interaction);
-      expectType<MessageActionRowComponent | APIButtonComponent | APISelectMenuComponent>(interaction.component);
-      expectType<Message>(interaction.message);
-      expectType<Guild | null>(interaction.guild);
-      expectType<Promise<Message>>(interaction.reply({ fetchReply: true }));
-    }
-  }
-
-  if (interaction.isSelectMenu()) {
+  if (interaction.type === InteractionType.MessageComponent && interaction.componentType === ComponentType.SelectMenu) {
     expectType<SelectMenuInteraction>(interaction);
     expectType<SelectMenuComponent | APISelectMenuComponent>(interaction.component);
     expectType<Message>(interaction.message);
@@ -1271,7 +1294,10 @@ client.on('interactionCreate', async interaction => {
     }
   }
 
-  if (interaction.isChatInputCommand()) {
+  if (
+    interaction.type === InteractionType.ApplicationCommand &&
+    interaction.commandType === ApplicationCommandType.ChatInput
+  ) {
     if (interaction.inRawGuild()) {
       expectNotAssignable<Interaction<'cached'>>(interaction);
       expectAssignable<ChatInputCommandInteraction>(interaction);
@@ -1334,7 +1360,11 @@ client.on('interactionCreate', async interaction => {
     interaction.reply('test');
   }
 
-  if (interaction.isChatInputCommand() && interaction.isRepliable()) {
+  if (
+    interaction.type === InteractionType.ApplicationCommand &&
+    interaction.commandType === ApplicationCommandType.ChatInput &&
+    interaction.isRepliable()
+  ) {
     expectAssignable<CommandInteraction>(interaction);
     expectAssignable<InteractionResponseFields>(interaction);
   }
@@ -1432,16 +1462,14 @@ declare const GuildBasedChannel: GuildBasedChannel;
 declare const NonThreadGuildBasedChannel: NonThreadGuildBasedChannel;
 declare const GuildTextBasedChannel: GuildTextBasedChannel;
 
-expectType<DMChannel | PartialDMChannel | NewsChannel | TextChannel | ThreadChannel | VoiceChannel>(TextBasedChannel);
+expectType<TextBasedChannel>(TextBasedChannel);
 expectType<ChannelType.GuildText | ChannelType.DM | ChannelType.GuildNews | ChannelType.GuildVoice | ThreadChannelType>(
   TextBasedChannelTypes,
 );
 expectType<StageChannel | VoiceChannel>(VoiceBasedChannel);
-expectType<CategoryChannel | NewsChannel | StageChannel | TextChannel | ThreadChannel | VoiceChannel>(
-  GuildBasedChannel,
-);
+expectType<GuildBasedChannel>(GuildBasedChannel);
 expectType<CategoryChannel | NewsChannel | StageChannel | TextChannel | VoiceChannel>(NonThreadGuildBasedChannel);
-expectType<NewsChannel | TextChannel | ThreadChannel | VoiceChannel>(GuildTextBasedChannel);
+expectType<GuildTextBasedChannel>(GuildTextBasedChannel);
 
 const button = new ButtonBuilder({
   label: 'test',

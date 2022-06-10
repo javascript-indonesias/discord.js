@@ -272,7 +272,7 @@ class ThreadChannel extends Channel {
     }
 
     // We cannot fetch a single thread member, as of this commit's date, Discord API responds with 405
-    const members = await this.members.fetch(cache);
+    const members = await this.members.fetch({ cache });
     return members.get(this.ownerId) ?? null;
   }
 
@@ -284,7 +284,7 @@ class ThreadChannel extends Channel {
    * @returns {Promise<Message>}
    */
   fetchStarterMessage(options) {
-    return this.parent.messages.fetch(this.id, options);
+    return this.parent.messages.fetch({ message: this.id, ...options });
   }
 
   /**
@@ -509,14 +509,6 @@ class ThreadChannel extends Channel {
    */
   get unarchivable() {
     return this.archived && this.sendable && (!this.locked || this.manageable);
-  }
-
-  /**
-   * Whether this thread is a private thread
-   * @returns {boolean}
-   */
-  isPrivate() {
-    return this.type === ChannelType.GuildPrivateThread;
   }
 
   /**
