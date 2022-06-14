@@ -119,6 +119,7 @@ import {
   LocaleString,
   MessageActivityType,
   APIAttachment,
+  APIChannel,
 } from 'discord-api-types/v10';
 import { ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
@@ -528,8 +529,8 @@ export class BaseGuildTextChannel extends TextBasedChannelMixin(GuildChannel) {
     reason?: string,
   ): Promise<this>;
   public setTopic(topic: string | null, reason?: string): Promise<this>;
-  public setType(type: Pick<typeof ChannelType, 'GuildText'>, reason?: string): Promise<TextChannel>;
-  public setType(type: Pick<typeof ChannelType, 'GuildNews'>, reason?: string): Promise<NewsChannel>;
+  public setType(type: ChannelType.GuildText, reason?: string): Promise<TextChannel>;
+  public setType(type: ChannelType.GuildNews, reason?: string): Promise<NewsChannel>;
 }
 
 export class BaseGuildVoiceChannel extends GuildChannel {
@@ -937,6 +938,7 @@ export class AutocompleteInteraction<Cached extends CacheType = CacheType> exten
   public commandId: Snowflake;
   public commandName: string;
   public commandType: ApplicationCommandType.ChatInput;
+  public commandGuildId: Snowflake | null;
   public responded: boolean;
   public options: Omit<
     CommandInteractionOptionResolver<Cached>,
@@ -1006,8 +1008,8 @@ export class CommandInteractionOptionResolver<Cached extends CacheType = CacheTy
   ): NonNullable<CommandInteractionOption<Cached>['member' | 'role' | 'user']> | null;
   public getMessage(name: string, required: true): NonNullable<CommandInteractionOption<Cached>['message']>;
   public getMessage(name: string, required?: boolean): NonNullable<CommandInteractionOption<Cached>['message']> | null;
-  public getFocused(getFull: true): AutocompleteOption;
-  public getFocused(getFull?: boolean): string | number;
+  public getFocused(getFull: true): AutocompleteFocusedOption;
+  public getFocused(getFull?: boolean): string;
 }
 
 export class ContextMenuCommandInteraction<Cached extends CacheType = CacheType> extends CommandInteraction<Cached> {
@@ -2612,43 +2614,40 @@ export class UserFlagsBitField extends BitField<UserFlagsString> {
   public static resolve(bit?: BitFieldResolvable<UserFlagsString, number>): number;
 }
 
-export class Util extends null {
-  private constructor();
-  public static basename(path: string, ext?: string): string;
-  public static cleanContent(str: string, channel: TextBasedChannel): string;
-  public static cloneObject(obj: unknown): unknown;
-  public static discordSort<K, V extends { rawPosition: number; id: Snowflake }>(
-    collection: Collection<K, V>,
-  ): Collection<K, V>;
-  public static escapeMarkdown(text: string, options?: EscapeMarkdownOptions): string;
-  public static escapeCodeBlock(text: string): string;
-  public static escapeInlineCode(text: string): string;
-  public static escapeBold(text: string): string;
-  public static escapeItalic(text: string): string;
-  public static escapeUnderline(text: string): string;
-  public static escapeStrikethrough(text: string): string;
-  public static escapeSpoiler(text: string): string;
-  public static cleanCodeBlockContent(text: string): string;
-  public static fetchRecommendedShards(token: string, options?: FetchRecommendedShardsOptions): Promise<number>;
-  public static flatten(obj: unknown, ...props: Record<string, boolean | string>[]): unknown;
-  public static makeError(obj: MakeErrorOptions): Error;
-  public static makePlainError(err: Error): MakeErrorOptions;
-  public static mergeDefault(def: unknown, given: unknown): unknown;
-  public static moveElementInArray(array: unknown[], element: unknown, newIndex: number, offset?: boolean): number;
-  public static parseEmoji(text: string): { animated: boolean; name: string; id: Snowflake | null } | null;
-  public static resolveColor(color: ColorResolvable): number;
-  public static resolvePartialEmoji(emoji: EmojiIdentifierResolvable): Partial<APIPartialEmoji> | null;
-  public static verifyString(data: string, error?: typeof Error, errorMessage?: string, allowEmpty?: boolean): string;
-  public static setPosition<T extends AnyChannel | Role>(
-    item: T,
-    position: number,
-    relative: boolean,
-    sorted: Collection<Snowflake, T>,
-    client: Client,
-    route: string,
-    reason?: string,
-  ): Promise<{ id: Snowflake; position: number }[]>;
-}
+export function basename(path: string, ext?: string): string;
+export function cleanContent(str: string, channel: TextBasedChannel): string;
+export function cloneObject(obj: unknown): unknown;
+export function discordSort<K, V extends { rawPosition: number; id: Snowflake }>(
+  collection: Collection<K, V>,
+): Collection<K, V>;
+export function escapeMarkdown(text: string, options?: EscapeMarkdownOptions): string;
+export function escapeCodeBlock(text: string): string;
+export function escapeInlineCode(text: string): string;
+export function escapeBold(text: string): string;
+export function escapeItalic(text: string): string;
+export function escapeUnderline(text: string): string;
+export function escapeStrikethrough(text: string): string;
+export function escapeSpoiler(text: string): string;
+export function cleanCodeBlockContent(text: string): string;
+export function fetchRecommendedShards(token: string, options?: FetchRecommendedShardsOptions): Promise<number>;
+export function flatten(obj: unknown, ...props: Record<string, boolean | string>[]): unknown;
+export function makeError(obj: MakeErrorOptions): Error;
+export function makePlainError(err: Error): MakeErrorOptions;
+export function mergeDefault(def: unknown, given: unknown): unknown;
+export function moveElementInArray(array: unknown[], element: unknown, newIndex: number, offset?: boolean): number;
+export function parseEmoji(text: string): { animated: boolean; name: string; id: Snowflake | null } | null;
+export function resolveColor(color: ColorResolvable): number;
+export function resolvePartialEmoji(emoji: EmojiIdentifierResolvable): Partial<APIPartialEmoji> | null;
+export function verifyString(data: string, error?: typeof Error, errorMessage?: string, allowEmpty?: boolean): string;
+export function setPosition<T extends AnyChannel | Role>(
+  item: T,
+  position: number,
+  relative: boolean,
+  sorted: Collection<Snowflake, T>,
+  client: Client,
+  route: string,
+  reason?: string,
+): Promise<{ id: Snowflake; position: number }[]>;
 
 export interface MappedComponentBuilderTypes {
   [ComponentType.Button]: ButtonBuilder;
@@ -2664,18 +2663,23 @@ export interface MappedComponentTypes {
   [ComponentType.TextInput]: TextInputComponent;
 }
 
-export class Components extends null {
-  public static createComponent<T extends keyof MappedComponentTypes>(
-    data: APIMessageComponent & { type: T },
-  ): MappedComponentTypes[T];
-  public static createComponent<C extends Component>(data: C): C;
-  public static createComponent(data: APIMessageComponent | Component): Component;
-  public static createComponentBuilder<T extends keyof MappedComponentBuilderTypes>(
-    data: APIMessageComponent & { type: T },
-  ): MappedComponentBuilderTypes[T];
-  public static createComponentBuilder<C extends ComponentBuilder>(data: C): C;
-  public static createComponentBuilder(data: APIMessageComponent | ComponentBuilder): ComponentBuilder;
+export interface CreateChannelOptions {
+  allowFromUnknownGuild?: boolean;
+  fromInteraction?: boolean;
 }
+
+export function createChannel(client: Client, data: APIChannel, options?: CreateChannelOptions): AnyChannel;
+
+export function createComponent<T extends keyof MappedComponentTypes>(
+  data: APIMessageComponent & { type: T },
+): MappedComponentTypes[T];
+export function createComponent<C extends Component>(data: C): C;
+export function createComponent(data: APIMessageComponent | Component): Component;
+export function createComponentBuilder<T extends keyof MappedComponentBuilderTypes>(
+  data: APIMessageComponent & { type: T },
+): MappedComponentBuilderTypes[T];
+export function createComponentBuilder<C extends ComponentBuilder>(data: C): C;
+export function createComponentBuilder(data: APIMessageComponent | ComponentBuilder): ComponentBuilder;
 
 export class Formatters extends null {
   public static blockQuote: typeof blockQuote;
@@ -3705,7 +3709,7 @@ export interface ApplicationCommandPermissionsUpdateData {
   id: Snowflake;
   guildId: Snowflake;
   applicationId: Snowflake;
-  permissions: ApplicationCommandPermissions;
+  permissions: ApplicationCommandPermissions[];
 }
 
 export interface EditApplicationCommandPermissionsMixin {
@@ -3849,7 +3853,7 @@ export interface ChannelCreationOverwrites {
 
 export interface ChannelData {
   name?: string;
-  type?: Pick<typeof ChannelType, 'GuildText' | 'GuildNews'>;
+  type?: ChannelType.GuildText | ChannelType.GuildNews;
   position?: number;
   topic?: string | null;
   nsfw?: boolean;
@@ -4063,7 +4067,14 @@ export interface CommandInteractionResolvedData<Cached extends CacheType = Cache
   attachments?: Collection<Snowflake, Attachment>;
 }
 
-export type AutocompleteOption = Pick<CommandInteractionOption, 'name' | 'type' | 'value' | 'focused'>;
+export type AutocompleteFocusedOption = Pick<CommandInteractionOption, 'name'> & {
+  focused: true;
+  type:
+    | ApplicationCommandOptionType.String
+    | ApplicationCommandOptionType.Integer
+    | ApplicationCommandOptionType.Number;
+  value: string;
+};
 
 export declare const Colors: {
   Default: 0x000000;
@@ -4099,6 +4110,7 @@ export declare const Colors: {
 };
 
 export declare const Events: {
+  ApplicationCommandPermissionsUpdate: 'applicationCommandPermissionsUpdate';
   ClientReady: 'ready';
   GuildCreate: 'guildCreate';
   GuildDelete: 'guildDelete';
