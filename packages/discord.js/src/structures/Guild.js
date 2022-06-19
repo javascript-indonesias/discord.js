@@ -2,7 +2,7 @@
 
 const { Collection } = require('@discordjs/collection');
 const { makeURLSearchParams } = require('@discordjs/rest');
-const { ChannelType, GuildPremiumTier, Routes } = require('discord-api-types/v10');
+const { ChannelType, GuildPremiumTier, Routes, GuildFeature } = require('discord-api-types/v10');
 const AnonymousGuild = require('./AnonymousGuild');
 const GuildAuditLogs = require('./GuildAuditLogs');
 const GuildAuditLogsEntry = require('./GuildAuditLogsEntry');
@@ -510,7 +510,7 @@ class Guild extends AnonymousGuild {
    * @readonly
    */
   get maximumBitrate() {
-    if (this.features.includes('VIP_REGIONS')) {
+    if (this.features.includes(GuildFeature.VIPRegions)) {
       return 384_000;
     }
 
@@ -603,7 +603,7 @@ class Guild extends AnonymousGuild {
    *   .catch(console.error);
    */
   async fetchVanityData() {
-    if (!this.features.includes('VANITY_URL')) {
+    if (!this.features.includes(GuildFeature.VanityURL)) {
       throw new Error('VANITY_URL');
     }
     const data = await this.client.rest.get(Routes.guildVanityUrl(this.id));
@@ -718,8 +718,8 @@ class Guild extends AnonymousGuild {
    * The data for editing a guild.
    * @typedef {Object} GuildEditData
    * @property {string} [name] The name of the guild
-   * @property {?(GuildVerificationLevel|number)} [verificationLevel] The verification level of the guild
-   * @property {?(GuildExplicitContentFilterLevel|number)} [explicitContentFilter] The level of the explicit content filter
+   * @property {?GuildVerificationLevel} [verificationLevel] The verification level of the guild
+   * @property {?GuildExplicitContentFilter} [explicitContentFilter] The level of the explicit content filter
    * @property {?VoiceChannelResolvable} [afkChannel] The AFK channel of the guild
    * @property {?TextChannelResolvable} [systemChannel] The system channel of the guild
    * @property {number} [afkTimeout] The AFK timeout of the guild
@@ -728,7 +728,7 @@ class Guild extends AnonymousGuild {
    * @property {?(BufferResolvable|Base64Resolvable)} [splash] The invite splash image of the guild
    * @property {?(BufferResolvable|Base64Resolvable)} [discoverySplash] The discovery splash image of the guild
    * @property {?(BufferResolvable|Base64Resolvable)} [banner] The banner of the guild
-   * @property {?(GuildDefaultMessageNotificationLevel|number)} [defaultMessageNotifications] The default message
+   * @property {?GuildDefaultMessageNotifications} [defaultMessageNotifications] The default message
    * notification level of the guild
    * @property {SystemChannelFlagsResolvable} [systemChannelFlags] The system channel flags of the guild
    * @property {?TextChannelResolvable} [rulesChannel] The rules channel of the guild
@@ -887,7 +887,7 @@ class Guild extends AnonymousGuild {
   /* eslint-disable max-len */
   /**
    * Edits the level of the explicit content filter.
-   * @param {?(GuildExplicitContentFilterLevel|number)} explicitContentFilter The new level of the explicit content filter
+   * @param {?GuildExplicitContentFilter} explicitContentFilter The new level of the explicit content filter
    * @param {string} [reason] Reason for changing the level of the guild's explicit content filter
    * @returns {Promise<Guild>}
    */
@@ -897,7 +897,7 @@ class Guild extends AnonymousGuild {
 
   /**
    * Edits the setting of the default message notifications of the guild.
-   * @param {?(GuildDefaultMessageNotificationLevel|number)} defaultMessageNotifications The new default message notification level of the guild
+   * @param {?GuildDefaultMessageNotifications} defaultMessageNotifications The new default message notification level of the guild
    * @param {string} [reason] Reason for changing the setting of the default message notifications
    * @returns {Promise<Guild>}
    */

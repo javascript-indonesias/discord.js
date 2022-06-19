@@ -1192,7 +1192,7 @@ export class GuildAuditLogsEntry<
   TActionType extends GuildAuditLogsActionType = TAction extends keyof GuildAuditLogsTypes
     ? GuildAuditLogsTypes[TAction][1]
     : 'All',
-  TTargetType extends GuildAuditLogsTarget = TAction extends keyof GuildAuditLogsTypes
+  TTargetType extends GuildAuditLogsTargetType = TAction extends keyof GuildAuditLogsTypes
     ? GuildAuditLogsTypes[TAction][0]
     : 'Unknown',
 > {
@@ -1211,8 +1211,8 @@ export class GuildAuditLogsEntry<
     ? GuildAuditLogsEntryTargetField<TActionType>[TTargetType]
     : Role | GuildEmoji | { id: Snowflake } | null;
   public targetType: TTargetType;
-  public static actionType(action: number): GuildAuditLogsActionType;
-  public static targetType(target: number): GuildAuditLogsTarget;
+  public static actionType(action: AuditLogEvent): GuildAuditLogsActionType;
+  public static targetType(target: AuditLogEvent): GuildAuditLogsTargetType;
   public toJSON(): unknown;
 }
 
@@ -1564,6 +1564,11 @@ export class InteractionWebhook extends PartialWebhookMixin() {
   public constructor(client: Client, id: Snowflake, token: string);
   public token: string;
   public send(options: string | MessagePayload | InteractionReplyOptions): Promise<Message>;
+  public editMessage(
+    message: MessageResolvable,
+    options: string | MessagePayload | WebhookEditMessageOptions,
+  ): Promise<Message>;
+  public fetchMessage(message: string): Promise<Message>;
 }
 
 export class Invite extends Base {
@@ -2801,9 +2806,9 @@ export class WebhookClient extends WebhookMixin(BaseClient) {
   public editMessage(
     message: MessageResolvable,
     options: string | MessagePayload | WebhookEditMessageOptions,
-  ): Promise<Message>;
-  public fetchMessage(message: Snowflake, options?: WebhookFetchMessageOptions): Promise<Message>;
-  public send(options: string | MessagePayload | WebhookMessageOptions): Promise<Message>;
+  ): Promise<APIMessage>;
+  public fetchMessage(message: Snowflake, options?: WebhookFetchMessageOptions): Promise<APIMessage>;
+  public send(options: string | MessagePayload | WebhookMessageOptions): Promise<APIMessage>;
 }
 
 export class WebSocketManager extends EventEmitter {
@@ -3488,9 +3493,9 @@ export interface PartialWebhookFields {
   editMessage(
     message: MessageResolvable | '@original',
     options: string | MessagePayload | WebhookEditMessageOptions,
-  ): Promise<Message>;
-  fetchMessage(message: Snowflake | '@original', options?: WebhookFetchMessageOptions): Promise<Message>;
-  send(options: string | MessagePayload | Omit<WebhookMessageOptions, 'flags'>): Promise<Message>;
+  ): Promise<APIMessage | Message>;
+  fetchMessage(message: Snowflake | '@original', options?: WebhookFetchMessageOptions): Promise<APIMessage | Message>;
+  send(options: string | MessagePayload | Omit<WebhookMessageOptions, 'flags'>): Promise<APIMessage | Message>;
 }
 
 export interface WebhookFields extends PartialWebhookFields {
@@ -4492,10 +4497,10 @@ export interface GuildAuditLogsFetchOptions<T extends GuildAuditLogsResolvable> 
 
 export type GuildAuditLogsResolvable = AuditLogEvent | null;
 
-export type GuildAuditLogsTarget = GuildAuditLogsTypes[keyof GuildAuditLogsTypes][0] | 'All' | 'Unknown';
+export type GuildAuditLogsTargetType = GuildAuditLogsTypes[keyof GuildAuditLogsTypes][0] | 'All' | 'Unknown';
 
 export type GuildAuditLogsTargets = {
-  [key in GuildAuditLogsTarget]: GuildAuditLogsTarget;
+  [key in GuildAuditLogsTargetType]: GuildAuditLogsTargetType;
 };
 
 export type GuildBanResolvable = GuildBan | UserResolvable;
@@ -4651,7 +4656,7 @@ export interface GuildScheduledEventEditOptions<
   T extends GuildScheduledEventSetStatusArg<S>,
 > extends Omit<Partial<GuildScheduledEventCreateOptions>, 'channel'> {
   channel?: GuildVoiceChannelResolvable | null;
-  status?: T | number;
+  status?: T;
 }
 
 export interface GuildScheduledEventEntityMetadata {
@@ -5006,16 +5011,7 @@ export type PresenceResolvable = Presence | UserResolvable | Snowflake;
 export interface PartialChannelData {
   id?: Snowflake | number;
   parentId?: Snowflake | number;
-  type?: Exclude<
-    ChannelType,
-    | ChannelType.DM
-    | ChannelType.GroupDM
-    | ChannelType.GuildNews
-    | ChannelType.GuildNewsThread
-    | ChannelType.GuildPublicThread
-    | ChannelType.GuildPrivateThread
-    | ChannelType.GuildStageVoice
-  >;
+  type?: ChannelType.GuildText | ChannelType.GuildVoice | ChannelType.GuildCategory;
   name: string;
   topic?: string | null;
   nsfw?: boolean;
@@ -5320,7 +5316,6 @@ export type WebhookEditMessageOptions = Pick<
 >;
 
 export interface WebhookFetchMessageOptions {
-  cache?: boolean;
   threadId?: Snowflake;
 }
 
@@ -5334,12 +5329,13 @@ export interface WebSocketOptions {
   large_threshold?: number;
   compress?: boolean;
   properties?: WebSocketProperties;
+  version?: number;
 }
 
 export interface WebSocketProperties {
-  $os?: string;
-  $browser?: string;
-  $device?: string;
+  os?: string;
+  browser?: string;
+  device?: string;
 }
 
 export interface WidgetActivity {
