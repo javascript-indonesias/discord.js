@@ -120,6 +120,7 @@ import {
   MessageActivityType,
   APIAttachment,
   APIChannel,
+  ThreadAutoArchiveDuration,
 } from 'discord-api-types/v10';
 import { ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
@@ -630,7 +631,7 @@ export class SelectMenuOptionBuilder extends BuildersSelectMenuOption {
 }
 
 export class ModalBuilder extends BuildersModal {
-  public constructor(data?: ModalData | APIModalComponent);
+  public constructor(data?: Partial<ModalComponentData> | Partial<APIModalComponent>);
   public static from(other: JSONEncodable<APIModalComponent> | APIModalComponent): ModalBuilder;
 }
 
@@ -1921,7 +1922,10 @@ export class MessageReaction {
 export interface ModalComponentData {
   customId: string;
   title: string;
-  components: (ActionRow<ModalActionRowComponent> | ActionRowData<ModalActionRowComponentData>)[];
+  components: (
+    | JSONEncodable<APIActionRowComponent<APIModalActionRowComponent>>
+    | ActionRowData<ModalActionRowComponentData>
+  )[];
 }
 
 export interface BaseModalData {
@@ -2968,28 +2972,11 @@ export type NonSystemMessageType =
   | MessageType.ContextMenuCommand;
 
 export const Constants: {
-  Package: {
-    name: string;
-    version: string;
-    description: string;
-    license: string;
-    main: string;
-    types: string;
-    homepage: string;
-    keywords: string[];
-    bugs: { url: string };
-    repository: { type: string; url: string };
-    scripts: Record<string, string>;
-    engines: Record<string, string>;
-    dependencies: Record<string, string>;
-    devDependencies: Record<string, string>;
-    [key: string]: unknown;
-  };
-  UserAgent: string;
-  ThreadChannelTypes: ThreadChannelType[];
-  TextBasedChannelTypes: TextBasedChannelTypes[];
-  VoiceBasedChannelTypes: VoiceBasedChannelTypes[];
+  SweeperKeys: SweeperKey;
   NonSystemMessageTypes: NonSystemMessageType[];
+  TextBasedChannelTypes: TextBasedChannelTypes[];
+  ThreadChannelTypes: ThreadChannelType[];
+  VoiceBasedChannelTypes: VoiceBasedChannelTypes[];
 };
 
 export const version: string;
@@ -5408,8 +5395,6 @@ export type GuildTextBasedChannel = Extract<GuildBasedChannel, TextBasedChannel>
 export type TextChannelResolvable = Snowflake | TextChannel;
 
 export type TextBasedChannelResolvable = Snowflake | TextBasedChannel;
-
-export type ThreadAutoArchiveDuration = 60 | 1440 | 4320 | 10080;
 
 export type ThreadChannelResolvable = AnyThreadChannel | Snowflake;
 
