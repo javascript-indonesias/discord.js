@@ -1248,7 +1248,7 @@ export abstract class GuildChannel extends BaseChannel {
   public get viewable(): boolean;
   public clone(options?: GuildChannelCloneOptions): Promise<this>;
   public delete(reason?: string): Promise<this>;
-  public edit(data: ChannelEditData): Promise<this>;
+  public edit(data: GuildChannelEditOptions): Promise<this>;
   public equals(channel: GuildChannel): boolean;
   public lockPermissions(): Promise<this>;
   public permissionsFor(memberOrRole: GuildMember | Role, checkAdmin?: boolean): Readonly<PermissionsBitField>;
@@ -1518,6 +1518,7 @@ export class BaseInteraction<Cached extends CacheType = CacheType> extends Base 
   public type: InteractionType;
   public user: User;
   public version: number;
+  public appPermissions: Readonly<PermissionsBitField> | null;
   public memberPermissions: CacheTypeReducer<Cached, Readonly<PermissionsBitField>>;
   public locale: Locale;
   public guildLocale: CacheTypeReducer<Cached, Locale>;
@@ -2177,8 +2178,8 @@ export class SelectMenuInteraction<Cached extends CacheType = CacheType> extends
 }
 
 export interface ShardEventTypes {
-  spawn: [child: ChildProcess];
-  death: [child: ChildProcess];
+  spawn: [process: ChildProcess | Worker];
+  death: [process: ChildProcess | Worker];
   disconnect: [];
   ready: [];
   reconnecting: [];
@@ -2851,6 +2852,7 @@ export interface WebSocketShardEvents {
   ready: [];
   resumed: [];
   invalidSession: [];
+  destroyed: [];
   close: [event: CloseEvent];
   allReady: [unavailableGuilds?: Set<Snowflake>];
 }
@@ -3329,7 +3331,7 @@ export class GuildChannelManager extends CachedManager<Snowflake, GuildBasedChan
   ): Promise<MappedGuildChannelTypes[T]>;
   public create(options: GuildChannelCreateOptions): Promise<TextChannel>;
   public createWebhook(options: WebhookCreateOptions): Promise<Webhook>;
-  public edit(channel: GuildChannelResolvable, data: ChannelEditData): Promise<GuildChannel>;
+  public edit(channel: GuildChannelResolvable, data: GuildChannelEditOptions): Promise<GuildChannel>;
   public fetch(id: Snowflake, options?: BaseFetchOptions): Promise<NonThreadGuildBasedChannel | null>;
   public fetch(id?: undefined, options?: BaseFetchOptions): Promise<Collection<Snowflake, NonThreadGuildBasedChannel>>;
   public fetchWebhooks(channel: GuildChannelResolvable): Promise<Collection<Snowflake, Webhook>>;
@@ -4010,27 +4012,6 @@ export interface ChannelCreationOverwrites {
   id: RoleResolvable | UserResolvable;
 }
 
-export interface ChannelData {
-  name?: string;
-  type?: ChannelType.GuildText | ChannelType.GuildNews;
-  position?: number;
-  topic?: string | null;
-  nsfw?: boolean;
-  bitrate?: number;
-  userLimit?: number;
-  parent?: CategoryChannelResolvable | null;
-  rateLimitPerUser?: number;
-  lockPermissions?: boolean;
-  permissionOverwrites?: readonly OverwriteResolvable[] | Collection<Snowflake, OverwriteResolvable>;
-  defaultAutoArchiveDuration?: ThreadAutoArchiveDuration;
-  rtcRegion?: string | null;
-  videoQualityMode?: VideoQualityMode | null;
-}
-
-export interface ChannelEditData extends ChannelData {
-  reason?: string;
-}
-
 export type ChannelMention = `<#${Snowflake}>`;
 
 export interface ChannelPosition {
@@ -4356,6 +4337,9 @@ export enum Status {
   Idle = 3,
   Nearly = 4,
   Disconnected = 5,
+  WaitingForGuilds = 6,
+  Identifying = 7,
+  Resuming = 8,
 }
 
 export interface CreateGuildScheduledEventInviteURLOptions extends CreateInviteOptions {
@@ -4675,6 +4659,24 @@ export interface GuildChannelCreateOptions extends Omit<CategoryCreateChannelOpt
 
 export interface GuildChannelCloneOptions extends Omit<GuildChannelCreateOptions, 'name'> {
   name?: string;
+}
+
+export interface GuildChannelEditOptions {
+  name?: string;
+  type?: ChannelType.GuildText | ChannelType.GuildNews;
+  position?: number;
+  topic?: string | null;
+  nsfw?: boolean;
+  bitrate?: number;
+  userLimit?: number;
+  parent?: CategoryChannelResolvable | null;
+  rateLimitPerUser?: number;
+  lockPermissions?: boolean;
+  permissionOverwrites?: readonly OverwriteResolvable[] | Collection<Snowflake, OverwriteResolvable>;
+  defaultAutoArchiveDuration?: ThreadAutoArchiveDuration;
+  rtcRegion?: string | null;
+  videoQualityMode?: VideoQualityMode | null;
+  reason?: string;
 }
 
 export interface GuildChannelOverwriteOptions {
