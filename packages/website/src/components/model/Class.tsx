@@ -1,6 +1,7 @@
 import { DocContainer } from '../DocContainer';
 import { MethodList } from '../MethodList';
 import { PropertyList } from '../PropertyList';
+import { Separator } from '../Seperator';
 import type { DocClass } from '~/DocModel/DocClass';
 
 export interface ClassProps {
@@ -9,10 +10,27 @@ export interface ClassProps {
 
 export function Class({ data }: ClassProps) {
 	return (
-		<DocContainer name={data.name} kind={data.kind} excerpt={data.excerpt} summary={data.summary}>
+		<DocContainer
+			name={data.name}
+			kind={data.kind}
+			excerpt={data.excerpt}
+			summary={data.summary}
+			typeParams={data.typeParameterData}
+		>
 			<>
-				{data.properties.length ? <PropertyList data={data.properties} /> : null}
-				{data.methods.length ? <MethodList data={data.methods} /> : null}
+				{data.properties.length ? (
+					<>
+						<PropertyList data={data.properties} />
+						<Separator />
+					</>
+				) : null}
+
+				{data.methods.length ? (
+					<>
+						<MethodList data={data.methods} />
+						<Separator />
+					</>
+				) : null}
 			</>
 		</DocContainer>
 	);

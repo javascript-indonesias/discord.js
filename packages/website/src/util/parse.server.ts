@@ -10,6 +10,7 @@ import {
 	type ApiPropertyItem,
 	type ExcerptToken,
 	type Parameter,
+	type TypeParameter,
 } from '@microsoft/api-extractor-model';
 import type { DocNode, DocParagraph, DocPlainText } from '@microsoft/tsdoc';
 
@@ -142,6 +143,11 @@ export function genReference(item: ApiItem) {
 }
 
 export function genToken(model: ApiModel, token: ExcerptToken) {
+	if (token.canonicalReference) {
+		// @ts-expect-error
+		token.canonicalReference._navigation = '.';
+	}
+
 	const item = token.canonicalReference
 		? model.resolveDeclarationReference(token.canonicalReference, undefined).resolvedApiItem ?? null
 		: null;
@@ -164,6 +170,26 @@ export function genParameter(model: ApiModel, param: Parameter): ParameterDocume
 export function getMembers(pkg: ApiPackage) {
 	return pkg.members[0]!.members.map((member) => ({
 		name: member.displayName,
+		kind: member.kind,
 		path: generatePath(member.getHierarchy()),
 	}));
+}
+
+export interface TypeParameterData {
+	name: string;
+	constraintTokens: TokenDocumentation[];
+	defaultTokens: TokenDocumentation[];
+	optional: boolean;
+}
+
+export function generateTypeParamData(model: ApiModel, typeParam: TypeParameter): TypeParameterData {
+	const constraintTokens = typeParam.constraintExcerpt.spannedTokens.map((token) => genToken(model, token));
+	const defaultTokens = typeParam.defaultTypeExcerpt.spannedTokens.map((token) => genToken(model, token));
+
+	return {
+		name: typeParam.name,
+		constraintTokens,
+		defaultTokens,
+		optional: typeParam.isOptional,
+	};
 }
