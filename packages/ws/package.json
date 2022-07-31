@@ -1,6 +1,6 @@
 {
 	"name": "@discordjs/ws",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "Wrapper around Discord's gateway",
 	"scripts": {
 		"test": "vitest run",
@@ -65,7 +65,7 @@
 		"@discordjs/docgen": "workspace:^",
 		"@favware/cliff-jumper": "^1.8.5",
 		"@microsoft/api-extractor": "^7.28.6",
-		"@types/node": "^16.11.45",
+		"@types/node": "^16.11.46",
 		"c8": "^7.12.0",
 		"eslint": "^8.20.0",
 		"mock-socket": "^9.1.5",
