@@ -1,17 +1,27 @@
-import { createStyles, UnstyledButton, Group, ThemeIcon, Collapse, Box, Text } from '@mantine/core';
-import { type ReactNode, useState } from 'react';
+import {
+	createStyles,
+	UnstyledButton,
+	Group,
+	ThemeIcon,
+	Collapse,
+	Box,
+	Text,
+	useMantineColorScheme,
+} from '@mantine/core';
+import { useState, useEffect, type PropsWithChildren } from 'react';
 import { VscChevronDown } from 'react-icons/vsc';
 
 const useStyles = createStyles((theme, { opened }: { opened: boolean }) => ({
 	control: {
 		display: 'block',
 		width: '100%',
-		padding: `${theme.spacing.xs}px ${theme.spacing.xs}px`,
+		padding: theme.spacing.xs,
 		color: theme.colorScheme === 'dark' ? theme.colors.dark![0] : theme.black,
-		fontSize: theme.fontSizes.sm,
+		backgroundColor: theme.colorScheme === 'dark' ? theme.colors.dark![7] : 'transparent',
+		borderRadius: theme.radius.xs,
 
 		'&:hover': {
-			backgroundColor: theme.colorScheme === 'dark' ? theme.colors.dark![6] : theme.colors.gray![0],
+			backgroundColor: theme.colorScheme === 'dark' ? theme.colors.dark![5] : theme.colors.gray![2],
 			color: theme.colorScheme === 'dark' ? theme.white : theme.black,
 		},
 	},
@@ -29,16 +39,21 @@ export function Section({
 	dense = false,
 	defaultClosed = false,
 	children,
-}: {
+}: PropsWithChildren<{
 	title: string;
 	icon?: JSX.Element;
 	padded?: boolean;
 	dense?: boolean;
 	defaultClosed?: boolean;
-	children: ReactNode;
-}) {
+}>) {
 	const [opened, setOpened] = useState(!defaultClosed);
+	const { colorScheme } = useMantineColorScheme();
 	const { classes } = useStyles({ opened });
+
+	useEffect(() => {
+		setOpened(!defaultClosed);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 
 	return (
 		<Box sx={{ wordBreak: 'break-all' }}>
@@ -46,7 +61,7 @@ export function Section({
 				<Group position="apart">
 					<Group>
 						{icon ? (
-							<ThemeIcon variant="outline" size={30}>
+							<ThemeIcon variant={colorScheme === 'dark' ? 'filled' : 'outline'} radius="sm" size={30}>
 								{icon}
 							</ThemeIcon>
 						) : null}

@@ -1,8 +1,8 @@
 import type { ApiItem, ApiModel } from '@microsoft/api-extractor-model';
 import type { DocComment } from '@microsoft/tsdoc';
 import { createCommentNode } from '.';
-import { block, DocBlockJSON } from './CommentBlock';
-import { DocNodeJSON, node } from './CommentNode';
+import { block, type DocBlockJSON } from './CommentBlock';
+import { type DocNodeJSON, node } from './CommentNode';
 
 export interface DocCommentJSON extends DocNodeJSON {
 	summary: DocNodeJSON[];
@@ -11,12 +11,14 @@ export interface DocCommentJSON extends DocNodeJSON {
 	customBlocks: DocBlockJSON[];
 }
 
-export function comment(comment: DocComment, model: ApiModel, parentItem?: ApiItem): DocCommentJSON {
+export function comment(comment: DocComment, model: ApiModel, version: string, parentItem?: ApiItem): DocCommentJSON {
 	return {
 		...node(comment),
-		summary: comment.summarySection.nodes.map((node) => createCommentNode(node, model, parentItem)),
-		remarks: comment.remarksBlock?.content.nodes.map((node) => createCommentNode(node, model, parentItem)) ?? [],
-		deprecated: comment.deprecatedBlock?.content.nodes.map((node) => createCommentNode(node, model, parentItem)) ?? [],
-		customBlocks: comment.customBlocks.map((_block) => block(_block, model, parentItem)),
+		summary: comment.summarySection.nodes.map((node) => createCommentNode(node, model, version, parentItem)),
+		remarks:
+			comment.remarksBlock?.content.nodes.map((node) => createCommentNode(node, model, version, parentItem)) ?? [],
+		deprecated:
+			comment.deprecatedBlock?.content.nodes.map((node) => createCommentNode(node, model, version, parentItem)) ?? [],
+		customBlocks: comment.customBlocks.map((_block) => block(_block, model, version, parentItem)),
 	};
 }

@@ -1,50 +1,77 @@
-import { Badge, Group, Stack, Title } from '@mantine/core';
+import { ActionIcon, Badge, Box, createStyles, Group, MediaQuery, Stack, Title } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
+import { FiLink } from 'react-icons/fi';
 import { HyperlinkedText } from './HyperlinkedText';
 import { InheritanceText } from './InheritanceText';
 import { ParameterTable } from './ParameterTable';
 import { TSDoc } from './tsdoc/TSDoc';
-import type { DocMethod } from '~/DocModel/DocMethod';
-import type { DocMethodSignature } from '~/DocModel/DocMethodSignature';
+import type { ApiMethodJSON, ApiMethodSignatureJSON } from '~/DocModel/ApiNodeJSONEncoder';
 import { Visibility } from '~/DocModel/Visibility';
 
-type MethodResolvable = ReturnType<DocMethod['toJSON']> | ReturnType<DocMethodSignature['toJSON']>;
+const useStyles = createStyles((theme) => ({
+	outer: {
+		display: 'flex',
+		alignItems: 'center',
+		gap: 16,
 
-function getShorthandName(data: MethodResolvable) {
+		[theme.fn.smallerThan('sm')]: {
+			flexDirection: 'column',
+			alignItems: 'unset',
+		},
+	},
+}));
+
+function getShorthandName(data: ApiMethodJSON | ApiMethodSignatureJSON) {
 	return `${data.name}${data.optional ? '?' : ''}(${data.parameters.reduce((prev, cur, index) => {
 		if (index === 0) {
-			return `${prev}${cur.isOptional ? `[${cur.name}]` : cur.name}`;
+			return `${prev}${cur.isOptional ? `${cur.name}?` : cur.name}`;
 		}
 
-		return `${prev}, ${cur.isOptional ? `[${cur.name}]` : cur.name}`;
+		return `${prev}, ${cur.isOptional ? `${cur.name}?` : cur.name}`;
 	}, '')})`;
 }
 
-export function MethodItem({ data }: { data: MethodResolvable }) {
-	const method = data as ReturnType<DocMethod['toJSON']>;
+export function MethodItem({ data }: { data: ApiMethodJSON | ApiMethodSignatureJSON }) {
+	const { classes } = useStyles();
+	const matches = useMediaQuery('(max-width: 768px)');
+	const method = data as ApiMethodJSON;
+	const key = `${data.name}${data.overloadIndex && data.overloadIndex > 1 ? `:${data.overloadIndex}` : ''}`;
+
 	return (
-		<Stack
-			id={`${data.name}${data.overloadIndex && data.overloadIndex > 1 ? `:${data.overloadIndex}` : ''}`}
-			className="scroll-mt-30"
-			spacing="xs"
-		>
+		<Stack id={key} className="scroll-mt-30" spacing="xs">
 			<Group>
 				<Stack>
-					<Group>
-						{data.deprecated ? (
-							<Badge variant="filled" color="red">
-								Deprecated
-							</Badge>
+					<Box className={classes.outer} ml={matches ? 0 : -45}>
+						<MediaQuery smallerThan="sm" styles={{ display: 'none' }}>
+							<ActionIcon component="a" href={`#${key}`} variant="transparent" color="dark">
+								<FiLink size={20} />
+							</ActionIcon>
+						</MediaQuery>
+						{data.deprecated ||
+						(data.kind === 'Method' && method.visibility === Visibility.Protected) ||
+						(data.kind === 'Method' && method.static) ? (
+							<Group spacing={10} noWrap>
+								{data.deprecated ? (
+									<Badge variant="filled" color="red">
+										Deprecated
+									</Badge>
+								) : null}
+								{data.kind === 'Method' && method.visibility === Visibility.Protected ? (
+									<Badge variant="filled">Protected</Badge>
+								) : null}
+								{data.kind === 'Method' && method.static ? <Badge variant="filled">Static</Badge> : null}
+							</Group>
 						) : null}
-						{data.kind === 'Method' && method.visibility === Visibility.Protected ? (
-							<Badge variant="filled">Protected</Badge>
-						) : null}
-						{data.kind === 'Method' && method.static ? <Badge variant="filled">Static</Badge> : null}
-						<Title sx={{ wordBreak: 'break-all' }} order={4} className="font-mono">{`${getShorthandName(data)}`}</Title>
-						<Title order={4}>:</Title>
-						<Title sx={{ wordBreak: 'break-all' }} order={4} className="font-mono">
-							<HyperlinkedText tokens={data.returnTypeTokens} />
-						</Title>
-					</Group>
+						<Group spacing={10}>
+							<Title sx={{ wordBreak: 'break-all' }} order={4} className="font-mono">{`${getShorthandName(
+								data,
+							)}`}</Title>
+							<Title order={4}>:</Title>
+							<Title sx={{ wordBreak: 'break-all' }} order={4} className="font-mono">
+								<HyperlinkedText tokens={data.returnTypeTokens} />
+							</Title>
+						</Group>
+					</Box>
 				</Stack>
 			</Group>
 			<Group sx={{ display: data.summary || data.parameters.length ? 'block' : 'none' }} mb="lg">
