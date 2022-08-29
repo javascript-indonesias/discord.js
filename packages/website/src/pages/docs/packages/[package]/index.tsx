@@ -42,10 +42,13 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
 		const data: string[] = await res.json();
 
 		if (!data.length) {
-			console.log('No tags');
+			console.error('No tags');
 
 			return {
-				notFound: true,
+				props: {
+					error: 'No tags',
+				},
+				revalidate: 3600,
 			};
 		}
 
@@ -60,10 +63,13 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
 		};
 	} catch (e) {
 		const error = e as Error;
-		console.log(error);
+		console.error(error);
 
 		return {
-			notFound: true,
+			props: {
+				error: e,
+			},
+			revalidate: 3600,
 		};
 	}
 };
@@ -101,7 +107,7 @@ export default function VersionsRoute(props: Partial<VersionProps> & { error?: s
 					Select a version:
 				</Title>
 				{props.data?.versions.map((version) => (
-					<Link key={version} href={`/docs/packages/${props.packageName!}/${version}`} passHref>
+					<Link key={version} href={`/docs/packages/${props.packageName!}/${version}`} passHref prefetch={false}>
 						<UnstyledButton className={classes.control} component="a">
 							<Group position="apart">
 								<Group>
