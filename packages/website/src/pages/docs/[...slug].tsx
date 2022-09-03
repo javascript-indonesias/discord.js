@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { cwd } from 'node:process';
+import process, { cwd } from 'node:process';
 import {
 	findPackage,
 	getMembers,
@@ -12,14 +12,17 @@ import {
 	type ApiVariableJSON,
 	type ApiEnumJSON,
 } from '@discordjs/api-extractor-utils';
+import { createApiModel } from '@discordjs/scripts';
 import { ActionIcon, Affix, Box, LoadingOverlay, Transition } from '@mantine/core';
 import { useMediaQuery, useWindowScroll } from '@mantine/hooks';
+import { registerSpotlightActions } from '@mantine/spotlight';
 import { ApiFunction, ApiItemKind, type ApiPackage } from '@microsoft/api-extractor-model';
-import { MDXRemote } from 'next-mdx-remote';
-import { serialize } from 'next-mdx-remote/serialize';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import type { GetStaticPaths, GetStaticProps } from 'next/types';
+import { MDXRemote } from 'next-mdx-remote';
+import { serialize } from 'next-mdx-remote/serialize';
+import { useEffect } from 'react';
 import { VscChevronUp } from 'react-icons/vsc';
 import rehypeIgnore from 'rehype-ignore';
 import rehypePrettyCode from 'rehype-pretty-code';
@@ -34,9 +37,9 @@ import { Interface } from '~/components/model/Interface';
 import { TypeAlias } from '~/components/model/TypeAlias';
 import { Variable } from '~/components/model/Variable';
 import { MemberProvider } from '~/contexts/member';
-import { createApiModel } from '~/util/api-model.server';
 import { findMember, findMemberByKey } from '~/util/model.server';
 import { PACKAGES } from '~/util/packages';
+import { miniSearch } from '~/util/search';
 
 export const getStaticPaths: GetStaticPaths = async () => {
 	const pkgs = (
@@ -46,51 +49,46 @@ export const getStaticPaths: GetStaticPaths = async () => {
 					let data: any[] = [];
 					let versions: string[] = [];
 					if (process.env.NEXT_PUBLIC_LOCAL_DEV) {
-						const res = await readFile(join(cwd(), '..', packageName, 'docs', 'docs.api.json'), 'utf-8');
-						// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+						const res = await readFile(join(cwd(), '..', packageName, 'docs', 'docs.api.json'), 'utf8');
 						data = JSON.parse(res);
 					} else {
 						const response = await fetch(`https://docs.discordjs.dev/api/info?package=${packageName}`);
-						// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 						versions = await response.json();
 
 						for (const version of versions) {
 							const res = await fetch(`https://docs.discordjs.dev/docs/${packageName}/${version}.api.json`);
-							// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 							data = [...data, await res.json()];
 						}
 					}
 
 					if (Array.isArray(data)) {
-						const models = data.map((d) => createApiModel(d));
+						const models = data.map((innerData) => createApiModel(innerData));
 						const pkgs = models.map((model) => findPackage(model, packageName)) as ApiPackage[];
 
 						return [
 							...versions.map((version) => ({ params: { slug: ['packages', packageName, version] } })),
-							...pkgs
-								.map((pkg, idx) =>
-									getMembers(pkg, versions[idx]!).map((member) => {
-										if (member.kind === ApiItemKind.Function && member.overloadIndex && member.overloadIndex > 1) {
-											return {
-												params: {
-													slug: [
-														'packages',
-														packageName,
-														versions[idx]!,
-														`${member.name}:${member.overloadIndex}:${member.kind}`,
-													],
-												},
-											};
-										}
-
+							...pkgs.flatMap((pkg, idx) =>
+								getMembers(pkg, versions[idx]!).map((member) => {
+									if (member.kind === ApiItemKind.Function && member.overloadIndex && member.overloadIndex > 1) {
 										return {
 											params: {
-												slug: ['packages', packageName, versions[idx]!, `${member.name}:${member.kind}`],
+												slug: [
+													'packages',
+													packageName,
+													versions[idx]!,
+													`${member.name}:${member.overloadIndex}:${member.kind}`,
+												],
 											},
 										};
-									}),
-								)
-								.flat(),
+									}
+
+									return {
+										params: {
+											slug: ['packages', packageName, versions[idx]!, `${member.name}:${member.kind}`],
+										},
+									};
+								}),
+							),
 						];
 					}
 
@@ -130,7 +128,7 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
 	const [memberName, overloadIndex] = member?.split(':') ?? [];
 
 	try {
-		const readme = await readFile(join(cwd(), '..', packageName, 'README.md'), 'utf-8');
+		const readme = await readFile(join(cwd(), '..', packageName, 'README.md'), 'utf8');
 
 		const mdxSource = await serialize(readme, {
 			mdxOptions: {
@@ -142,22 +140,28 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
 		});
 
 		let data;
+		let searchIndex = [];
 		if (process.env.NEXT_PUBLIC_LOCAL_DEV) {
-			const res = await readFile(join(cwd(), '..', packageName, 'docs', 'docs.api.json'), 'utf-8');
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+			const res = await readFile(join(cwd(), '..', packageName, 'docs', 'docs.api.json'), 'utf8');
 			data = JSON.parse(res);
+
+			const response = await readFile(
+				join(cwd(), '..', 'scripts', 'searchIndex', `${packageName}-main-index.json`),
+				'utf8',
+			);
+			searchIndex = JSON.parse(response);
 		} else {
 			const res = await fetch(`https://docs.discordjs.dev/docs/${packageName}/${branchName}.api.json`);
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 			data = await res.json();
 		}
 
 		const model = createApiModel(data);
 		const pkg = findPackage(model, packageName);
 
+		// eslint-disable-next-line prefer-const
 		let { containerKey, name } = findMember(model, packageName, memberName, branchName) ?? {};
-		if (name && overloadIndex && !Number.isNaN(parseInt(overloadIndex, 10))) {
-			containerKey = ApiFunction.getContainerKey(name, parseInt(overloadIndex, 10));
+		if (name && overloadIndex && !Number.isNaN(Number.parseInt(overloadIndex, 10))) {
+			containerKey = ApiFunction.getContainerKey(name, Number.parseInt(overloadIndex, 10));
 		}
 
 		return {
@@ -169,19 +173,20 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
 					member:
 						memberName && containerKey ? findMemberByKey(model, packageName, containerKey, branchName) ?? null : null,
 					source: mdxSource,
+					searchIndex,
 				},
 			},
-			revalidate: 3600,
+			revalidate: 3_600,
 		};
-	} catch (e) {
-		const error = e as Error;
+	} catch (error_) {
+		const error = error_ as Error;
 		console.error(error);
 
 		return {
 			props: {
-				error: e,
+				error: error_,
 			},
-			revalidate: 3600,
+			revalidate: 3_600,
 		};
 	}
 };
@@ -209,6 +214,22 @@ export default function SlugPage(props: Partial<SidebarLayoutProps & { error?: s
 	const router = useRouter();
 	const [scroll, scrollTo] = useWindowScroll();
 	const matches = useMediaQuery('(max-width: 1200px)');
+
+	useEffect(() => {
+		if (props.data?.searchIndex) {
+			const searchIndex = props.data?.searchIndex.map((idx, index) => ({ id: index, ...idx })) ?? [];
+			miniSearch.addAll(searchIndex);
+
+			registerSpotlightActions(
+				searchIndex.map((idx) => ({
+					title: idx.name,
+					description: idx.summary ?? '',
+					onTrigger: () => void router.push(idx.path),
+				})),
+			);
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 
 	const name = `discord.js${props.data?.member?.name ? ` | ${props.data.member.name}` : ''}`;
 
