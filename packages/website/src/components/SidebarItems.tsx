@@ -89,7 +89,7 @@ export function SidebarItems({
 						{groupItems[group].map((member, index) => (
 							<Link key={index} href={member.path} prefetch={false}>
 								<a
-									className={`dark:border-dark-100 border-light-800 ml-5 border-l p-[5px] pl-6 ${
+									className={`dark:border-dark-100 border-light-800 ml-5 flex flex-col border-l p-[5px] pl-6 ${
 										asPathWithoutQueryAndAnchor === member.path
 											? 'bg-blurple text-white'
 											: 'dark:hover:bg-dark-200 dark:active:bg-dark-100 hover:bg-light-700 active:bg-light-800'
@@ -97,7 +97,7 @@ export function SidebarItems({
 									title={member.name}
 									onClick={() => setOpened(false)}
 								>
-									<div className="flex flex-row place-items-center gap-2 text-sm">
+									<div className="flex flex-row place-items-center gap-2 lg:text-sm">
 										<span className="truncate">{member.name}</span>
 										{member.overloadIndex && member.overloadIndex > 1 ? (
 											<span className="text-xs">{member.overloadIndex}</span>
