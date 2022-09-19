@@ -1,4 +1,4 @@
-import type { getMembers, ApiItemJSON } from '@discordjs/api-extractor-utils';
+import type { getMembers, ApiItemJSON, ApiClassJSON, ApiInterfaceJSON } from '@discordjs/api-extractor-utils';
 import { Button } from 'ariakit/button';
 import { Menu, MenuButton, MenuItem, useMenuState } from 'ariakit/menu';
 import Image from 'next/future/image';
@@ -8,12 +8,22 @@ import type { MDXRemoteSerializeResult } from 'next-mdx-remote';
 import { useTheme } from 'next-themes';
 import { type PropsWithChildren, useState, useEffect, useMemo, Fragment } from 'react';
 import { Scrollbars } from 'react-custom-scrollbars-2';
-import { VscChevronDown, VscColorMode, VscGithubInverted, VscMenu, VscPackage, VscVersions } from 'react-icons/vsc';
+import { FiCommand } from 'react-icons/fi';
+import {
+	VscChevronDown,
+	VscColorMode,
+	VscGithubInverted,
+	VscMenu,
+	VscPackage,
+	VscSearch,
+	VscVersions,
+} from 'react-icons/vsc';
 import { useMedia /* useLockBodyScroll */ } from 'react-use';
 import useSWR from 'swr';
 import vercelLogo from '../assets/powered-by-vercel.svg';
-import { CmdkDialog } from './Cmdk';
+import { CmdKDialog } from './CmdK';
 import { SidebarItems } from './SidebarItems';
+import { useCmdK } from '~/contexts/cmdK';
 import { PACKAGES } from '~/util/constants';
 import { fetcher } from '~/util/fetcher';
 import type { findMember } from '~/util/model.server';
@@ -49,6 +59,7 @@ export function SidebarLayout({
 	children,
 }: PropsWithChildren<Partial<SidebarLayoutProps>>) {
 	const router = useRouter();
+	const dialog = useCmdK();
 	const [asPathWithoutQueryAndAnchor, setAsPathWithoutQueryAndAnchor] = useState('');
 	const { data: versions } = useSWR<string[]>(`https://docs.discordjs.dev/api/info?package=${packageName}`, fetcher);
 	const { resolvedTheme, setTheme } = useTheme();
@@ -157,7 +168,20 @@ export function SidebarLayout({
 							<VscMenu size={24} />
 						</Button>
 						<div className="hidden md:flex md:flex-row">{breadcrumbs}</div>
-						<div className="flex flex-row gap-4">
+						<div className="flex flex-row place-items-center gap-4">
+							<Button
+								as="div"
+								className="dark:bg-dark-800 rounded bg-white px-4 py-2.5"
+								onClick={() => dialog?.toggle()}
+							>
+								<div className="flex flex-row place-items-center gap-4">
+									<VscSearch size={18} />
+									<span className="opacity-65">Search...</span>
+									<div className="opacity-65 flex flex-row place-items-center gap-2">
+										<FiCommand size={18} /> K
+									</div>
+								</div>
+							</Button>
 							<Button
 								as="a"
 								className="flex h-6 w-6 transform-gpu cursor-pointer select-none appearance-none place-items-center rounded border-0 bg-transparent p-0 text-sm font-semibold leading-none no-underline active:translate-y-px"
@@ -248,17 +272,25 @@ export function SidebarLayout({
 			</nav>
 			<main
 				className={`pt-18 lg:pl-76 ${
-					data?.member?.kind === 'Class' || data?.member?.kind === 'Interface' ? 'xl:pr-64' : ''
+					(data?.member?.kind === 'Class' || data?.member?.kind === 'Interface') &&
+					((data.member as ApiClassJSON | ApiInterfaceJSON).methods?.length ||
+						(data.member as ApiClassJSON | ApiInterfaceJSON).properties?.length)
+						? 'xl:pr-64'
+						: ''
 				}`}
 			>
 				<article className="dark:bg-dark-600 bg-light-600">
-					<div className="min-h-[calc(100vh - 50px)] dark:bg-dark-800 relative z-10 bg-white p-6 pb-20 shadow">
+					<div className="dark:bg-dark-800 relative z-10 min-h-[calc(100vh_-_70px)] bg-white p-6 pb-20 shadow">
 						{children}
 					</div>
 					<div className="h-76 md:h-52" />
 					<footer
 						className={`dark:bg-dark-600 h-76 lg:pl-84 bg-light-600 fixed bottom-0 left-0 right-0 md:h-52 md:pl-4 md:pr-16 ${
-							data?.member?.kind === 'Class' || data?.member?.kind === 'Interface' ? 'xl:pr-76' : 'xl:pr-16'
+							(data?.member?.kind === 'Class' || data?.member?.kind === 'Interface') &&
+							((data.member as ApiClassJSON | ApiInterfaceJSON).methods?.length ||
+								(data.member as ApiClassJSON | ApiInterfaceJSON).properties?.length)
+								? 'xl:pr-76'
+								: 'xl:pr-16'
 						}`}
 					>
 						<div className="mx-auto flex max-w-6xl flex-col place-items-center gap-12 pt-12 lg:place-content-center">
@@ -307,7 +339,7 @@ export function SidebarLayout({
 					</footer>
 				</article>
 			</main>
-			<CmdkDialog />
+			<CmdKDialog currentPackageName={packageName} />
 		</>
 	);
 }
