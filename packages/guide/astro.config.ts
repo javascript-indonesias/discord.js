@@ -1,9 +1,12 @@
 import { fileURLToPath, URL } from 'node:url';
 import image from '@astrojs/image';
 import mdx from '@astrojs/mdx';
+import prefetch from '@astrojs/prefetch';
 import react from '@astrojs/react';
 import { remarkCodeHike } from '@code-hike/mdx';
 import { defineConfig } from 'astro/config';
+import compress from 'astro-compress';
+import critters from 'astro-critters';
 import { toString } from 'hast-util-to-string';
 import { h } from 'hastscript';
 import { escape } from 'html-escaper';
@@ -47,9 +50,14 @@ export default defineConfig({
 		image({
 			serviceEntryPoint: '@astrojs/image/sharp',
 		}),
+		prefetch({
+			throttle: 3,
+		}),
 		Unocss({
 			configFile: fileURLToPath(new URL('../ui/unocss.config.ts', import.meta.url)),
 		}),
+		critters(),
+		compress(),
 	],
 	markdown: {
 		remarkPlugins: [[remarkCodeHike, { autoImport: false, theme: shikiThemeDarkPlus, lineNumbers: true }]],
@@ -89,6 +97,7 @@ export default defineConfig({
 			alias: {
 				'ariakit/button': fileURLToPath(new URL('node_modules/ariakit/esm/button/index.js', import.meta.url)),
 				'ariakit/disclosure': fileURLToPath(new URL('node_modules/ariakit/esm/disclosure/index.js', import.meta.url)),
+				'ariakit/separator': fileURLToPath(new URL('node_modules/ariakit/esm/separator/index.js', import.meta.url)),
 				'ariakit-utils/dom': fileURLToPath(new URL('node_modules/ariakit-utils/esm/dom.js', import.meta.url)),
 				'ariakit-utils/events': fileURLToPath(new URL('node_modules/ariakit-utils/esm/events.js', import.meta.url)),
 				'ariakit-utils/focus': fileURLToPath(new URL('node_modules/ariakit-utils/esm/focus.js', import.meta.url)),
