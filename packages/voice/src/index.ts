@@ -21,10 +21,9 @@ export {
 export { type JoinConfig, getVoiceConnection, getVoiceConnections, getGroups } from './DataStore';
 
 /**
- * The [\@discordjs/voice](https://github.com/discordjs/discord.js/blob/main/packages/voice/#readme) version
+ * The {@link https://github.com/discordjs/discord.js/blob/main/packages/voice/#readme | @discordjs/voice} version
  * that you are currently using.
- *
- * Note to developers: This needs to explicitly be `string` so it is not typed as a "const string" that gets injected by esbuild
  */
+// This needs to explicitly be `string` so it is not typed as a "const string" that gets injected by esbuild
 // eslint-disable-next-line @typescript-eslint/no-inferrable-types
 export const version: string = '[VI]{{inject}}[/VI]';
