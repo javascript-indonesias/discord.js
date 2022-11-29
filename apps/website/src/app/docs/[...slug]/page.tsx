@@ -127,7 +127,7 @@ async function getData(slug: string[]) {
 
 	const [memberName, overloadIndex] = member?.split('%3A') ?? [];
 
-	const readme = await readFile(join(cwd(), '..', '..', 'packages', packageName, 'README.md'), 'utf8');
+	const readme = await readFile(join(cwd(), 'src', 'assets', 'readme', packageName, 'home-README.md'), 'utf8');
 
 	const mdxSource = await serialize(readme, {
 		mdxOptions: {
@@ -388,7 +388,3 @@ export default async function Page({ params }: { params: { slug: string[] } }) {
 		</MemberProvider>
 	);
 }
-
-export const config = {
-	unstable_includeFiles: [`../../packages/{brokers,builders,collection,proxy,rest,util,voice,ws}/README.md`],
-};
