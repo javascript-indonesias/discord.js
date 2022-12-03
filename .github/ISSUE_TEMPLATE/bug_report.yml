@@ -16,9 +16,10 @@ body:
         - builders
         - collection
         - core
-        - rest
+        - formatters
         - proxy
         - proxy-container
+        - rest
         - voice
         - ws
     validations:
