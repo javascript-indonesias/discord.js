@@ -1,14 +1,15 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { Scrollbars } from 'react-custom-scrollbars-2';
-import { PackageSelect } from './PackageSelect';
 import { Sidebar } from './Sidebar';
 import type { SidebarSectionItemData } from './Sidebar';
-import { VersionSelect } from './VersionSelect';
 import { useNav } from '~/contexts/nav';
 
+const PackageSelect = dynamic(async () => import('./PackageSelect'));
+const VersionSelect = dynamic(async () => import('./VersionSelect'));
+
 export function Nav({ members }: { members: SidebarSectionItemData[] }) {
-	// eslint-disable-next-line @typescript-eslint/unbound-method
 	const { opened } = useNav();
 
 	return (

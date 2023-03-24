@@ -2,9 +2,12 @@
 import '../styles/main.css';
 import '@code-hike/mdx/styles.css';
 import '../styles/ch.css';
+import { inject } from '@vercel/analytics';
 import type { MarkdownLayoutProps } from 'astro';
 import SidebarLayout from '../components/SidebarLayout.astro';
 import { DESCRIPTION } from '../util/constants.js';
+
+inject();
 
 type Props = MarkdownLayoutProps<{}>;
 const props = Astro.props;
@@ -26,7 +29,7 @@ const props = Astro.props;
 		<meta content="website" property="og:type" />
 		<meta content="discord.js guide" property="og:title" />
 		<meta content={DESCRIPTION} name="og:description" />
-		<meta content="https://discordjs.dev/open-graph.png" property="og:image" />
+		<meta content="https://discordjs.dev/api/open-graph.png" property="og:image" />
 		<meta content="summary_large_image" name="twitter:card" />
 		<meta content="@iCrawlToGo" name="twitter:creator" />
 
