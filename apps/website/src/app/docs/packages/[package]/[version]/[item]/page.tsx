@@ -81,9 +81,6 @@ function resolveMemberSearchParams(packageName: string, member: ApiItem): URLSea
 	return params;
 }
 
-// eslint-disable-next-line unicorn/numeric-separators-style
-export const revalidate = 3600;
-
 export async function generateMetadata({ params }: { params: ItemRouteParams }) {
 	const member = (await fetchHeadMember(params))!;
 	const name = `discord.js${member?.displayName ? ` | ${member.displayName}` : ''}`;
@@ -117,7 +114,7 @@ export async function generateStaticParams({ params: { package: packageName, ver
 	}
 
 	return entry.members.map((member: ApiItem) => ({
-		item: member.displayName,
+		item: `${member.displayName}${OVERLOAD_SEPARATOR}${member.kind}`,
 	}));
 }
 
@@ -143,5 +140,13 @@ function Member({ member }: { member?: ApiItem }) {
 export default async function Page({ params }: { params: ItemRouteParams }) {
 	const member = await fetchMember(params);
 
-	return <div className="relative top-6">{member ? <Member member={member} /> : null}</div>;
+	if (!member) {
+		notFound();
+	}
+
+	return (
+		<div className="relative top-6">
+			<Member member={member} />
+		</div>
+	);
 }
