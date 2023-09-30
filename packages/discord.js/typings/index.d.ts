@@ -636,6 +636,7 @@ export class BaseGuildEmoji extends Emoji {
 export class BaseGuildTextChannel extends TextBasedChannelMixin(GuildChannel, true) {
   protected constructor(guild: Guild, data?: RawGuildChannelData, client?: Client<true>, immediatePatch?: boolean);
   public defaultAutoArchiveDuration?: ThreadAutoArchiveDuration;
+  public defaultThreadRateLimitPerUser: number | null;
   public rateLimitPerUser: number | null;
   public nsfw: boolean;
   public threads: GuildTextThreadManager<AllowedThreadTypeForTextChannel | AllowedThreadTypeForNewsChannel>;
@@ -3170,7 +3171,7 @@ export class UserContextMenuCommandInteraction<
 > extends ContextMenuCommandInteraction<Cached> {
   public commandType: ApplicationCommandType.User;
   public get targetUser(): User;
-  public get targetMember(): CacheTypeReducer<Cached, GuildMember, APIInteractionGuildMember>;
+  public get targetMember(): CacheTypeReducer<Cached, GuildMember, APIInteractionGuildMember> | null;
   public inGuild(): this is UserContextMenuCommandInteraction<'raw' | 'cached'>;
   public inCachedGuild(): this is UserContextMenuCommandInteraction<'cached'>;
   public inRawGuild(): this is UserContextMenuCommandInteraction<'raw'>;
@@ -4823,6 +4824,7 @@ export interface CategoryCreateChannelOptions {
   position?: number;
   rtcRegion?: string;
   videoQualityMode?: VideoQualityMode;
+  defaultThreadRateLimitPerUser?: number;
   availableTags?: GuildForumTagData[];
   defaultReactionEmoji?: DefaultReactionEmoji;
   defaultAutoArchiveDuration?: ThreadAutoArchiveDuration;
@@ -5212,6 +5214,7 @@ export interface StageInstanceCreateOptions {
   topic: string;
   privacyLevel?: StageInstancePrivacyLevel;
   sendStartNotification?: boolean;
+  guildScheduledEvent?: GuildScheduledEventResolvable;
 }
 
 export interface CrosspostedChannel {
