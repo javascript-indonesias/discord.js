@@ -50,7 +50,7 @@
 		"@discordjs/api-extractor-utils": "workspace:^",
 		"@discordjs/scripts": "workspace:^",
 		"@discordjs/ui": "workspace:^",
-		"@microsoft/api-extractor-model": "^7.28.2",
+		"@discordjs/api-extractor-model": "workspace:^",
 		"@microsoft/tsdoc": "^0.14.2",
 		"@microsoft/tsdoc-config": "0.16.2",
 		"@planetscale/database": "^1.11.0",
@@ -63,7 +63,7 @@
 		"class-variance-authority": "^0.7.0",
 		"cmdk": "^0.2.0",
 		"meilisearch": "^0.35.0",
-		"next": "^14.0.2-canary.14",
+		"next": "14.0.2-canary.20",
 		"next-mdx-remote": "^4.4.1",
 		"next-themes": "^0.2.1",
 		"react": "^18.2.0",
@@ -72,11 +72,10 @@
 		"react-use": "^17.4.0",
 		"rehype-slug": "^5.1.0",
 		"remark-gfm": "^3.0.1",
-		"sharp": "^0.32.6",
-		"swr": "^2.2.4"
+		"sharp": "^0.32.6"
 	},
 	"devDependencies": {
-		"@next/bundle-analyzer": "^14.0.1",
+		"@next/bundle-analyzer": "14.0.2-canary.20",
 		"@testing-library/react": "^14.0.0",
 		"@testing-library/user-event": "^14.5.1",
 		"@types/node": "18.18.8",
@@ -102,6 +101,6 @@
 		"vitest": "^0.34.6"
 	},
 	"engines": {
-		"node": ">=18.17.1"
+		"node": ">=18"
 	}
 }

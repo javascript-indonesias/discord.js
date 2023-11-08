@@ -71,6 +71,11 @@
 		"vitest": "^0.34.6"
 	},
 	"pnpm": {
+		"peerDependencyRules": {
+			"ignoreMissing": [
+				"*"
+			]
+		},
 		"overrides": {
 			"@contentlayer/utils>@opentelemetry/core": "^1.15.1",
 			"@contentlayer/utils>@opentelemetry/exporter-trace-otlp-grpc": "^0.41.1",
@@ -80,11 +85,12 @@
 			"@contentlayer/utils>@opentelemetry/semantic-conventions": "^1.15.1"
 		},
 		"patchedDependencies": {
-			"@microsoft/tsdoc-config@0.16.2": "patches/@microsoft__tsdoc-config@0.16.2.patch"
+			"@microsoft/tsdoc-config@0.16.2": "patches/@microsoft__tsdoc-config@0.16.2.patch",
+			"next@14.0.2-canary.20": "patches/next@14.0.2-canary.20.patch"
 		}
 	},
 	"engines": {
-		"node": ">=18.17.1"
+		"node": ">=18"
 	},
-	"packageManager": "pnpm@8.7.0"
+	"packageManager": "pnpm@8.10.2"
 }

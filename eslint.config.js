@@ -75,7 +75,7 @@ export default [
 		rules: { 'jsdoc/no-undefined-types': 0 },
 	},
 	{
-		files: [`packages/{brokers,create-discord-bot,docgen,ws}/**/*${commonFiles}`],
+		files: [`packages/{api-extractor,brokers,create-discord-bot,docgen,ws}/**/*${commonFiles}`],
 		rules: { 'n/no-sync': 0 },
 	},
 	{
@@ -92,6 +92,24 @@ export default [
 	{
 		files: [`packages/voice/**/*${commonFiles}`],
 		rules: { 'no-restricted-globals': 0 },
+	},
+	{
+		files: [`packages/api-extractor-model/**/*${commonFiles}`],
+		rules: {
+			'@typescript-eslint/no-namespace': 0,
+			'no-prototype-builtins': 0,
+			'consistent-this': 0,
+			'unicorn/no-this-assignment': 0,
+			'@typescript-eslint/no-this-alias': 0,
+		},
+	},
+	{
+		files: [`packages/api-extractor/**/*${commonFiles}`],
+		rules: {
+			'consistent-this': 0,
+			'unicorn/no-this-assignment': 0,
+			'@typescript-eslint/no-this-alias': 0,
+		},
 	},
 	reactRuleset,
 	nextRuleset,
