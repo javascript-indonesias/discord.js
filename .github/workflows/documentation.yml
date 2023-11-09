@@ -5,11 +5,8 @@ on:
       - 'main'
     paths:
       - 'packages/*/src/**'
-      - '!packages/actions/**'
       - '!packages/create-discord-bot/**'
-      - '!packages/docgen/**'
       - '!packages/proxy-container/**'
-      - '!packages/scripts/**'
       - '!packages/ui/**'
     tags:
       - '**'
@@ -102,7 +99,7 @@ jobs:
       - name: Move docs to correct directory
         if: ${{ github.ref_type == 'branch' }}
         run: |
-          declare -a PACKAGES=("brokers" "builders" "collection" "core" "discord.js" "next" "formatters" "proxy" "rest" "util" "voice" "ws")
+          declare -a PACKAGES=("brokers" "builders" "collection" "core" "discord.js" "formatters" "next" "proxy" "rest" "util" "voice" "ws")
           for PACKAGE in "${PACKAGES[@]}"; do
             if [[ "${PACKAGE}" == "discord.js" ]]; then
               mkdir -p "out/${PACKAGE}"
@@ -130,9 +127,6 @@ jobs:
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
-    permissions:
-      contents: read
-      deployments: write
     if: github.repository_owner == 'discordjs'
     steps:
       - name: Checkout repository
@@ -157,9 +151,12 @@ jobs:
         uses: ./packages/actions/src/uploadSearchIndices
 
   deploy-website:
-    needs: [build-docs, build-indices]
+    needs: build-docs
     name: Deploy website
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
     if: github.repository_owner == 'discordjs'
     steps:
       - name: Checkout repository

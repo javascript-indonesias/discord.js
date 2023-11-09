@@ -1,6 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { connect } from '@planetscale/database';
+import { cache } from 'react';
+import { N_RECENT_VERSIONS } from '~/util/constants';
 
 const sql = connect({
 	url: process.env.DATABASE_URL!,
@@ -10,7 +12,7 @@ const sql = connect({
 	},
 });
 
-export async function fetchVersions(packageName: string): Promise<string[]> {
+export const fetchVersions = cache(async (packageName: string): Promise<string[]> => {
 	if (process.env.NEXT_PUBLIC_LOCAL_DEV || process.env.NEXT_PUBLIC_VERCEL_ENV === 'preview') {
 		return ['main'];
 	}
@@ -20,17 +22,16 @@ export async function fetchVersions(packageName: string): Promise<string[]> {
 	]);
 
 	// @ts-expect-error: https://github.com/planetscale/database-js/issues/71
-	return rows.map((row) => row.version);
-}
+	return rows.map((row) => row.version).slice(0, N_RECENT_VERSIONS);
+});
 
-export async function fetchModelJSON(packageName: string, version: string): Promise<unknown | null> {
+export const fetchModelJSON = cache(async (packageName: string, version: string) => {
 	if (process.env.NEXT_PUBLIC_LOCAL_DEV) {
-		const res = await readFile(
-			join(process.cwd(), '..', '..', 'packages', packageName, 'docs', 'docs.api.json'),
-			'utf8',
-		);
+		let res;
 
 		try {
+			res = await readFile(join(process.cwd(), '..', '..', 'packages', packageName, 'docs', 'docs.api.json'), 'utf8');
+
 			return JSON.parse(res);
 		} catch {
 			console.log(res);
@@ -55,4 +56,4 @@ export async function fetchModelJSON(packageName: string, version: string): Prom
 
 	// @ts-expect-error: https://github.com/planetscale/database-js/issues/71
 	return rows[0]?.data ?? null;
-}
+});
