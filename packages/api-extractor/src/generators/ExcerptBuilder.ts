@@ -135,7 +135,7 @@ export class ExcerptBuilder {
 		return { startIndex: 0, endIndex: 0, typeParameters: [] };
 	}
 
-	public static isPrimitiveKeyword(node: ts.Node): boolean {
+	private static _isPrimitiveKeyword(node: ts.Node): boolean {
 		switch (node.kind) {
 			case ts.SyntaxKind.AnyKeyword:
 			case ts.SyntaxKind.BigIntKeyword:
@@ -156,6 +156,15 @@ export class ExcerptBuilder {
 		}
 	}
 
+	private static _isRedundantBarAfterColon(span: Span) {
+		return (
+			span.kind === ts.SyntaxKind.BarToken &&
+			span.previousSibling === undefined &&
+			(span.parent?.parent?.previousSibling?.kind === ts.SyntaxKind.LessThanToken ||
+				span.parent?.parent?.previousSibling?.kind === ts.SyntaxKind.ColonToken)
+		);
+	}
+
 	private static _buildSpan(excerptTokens: IExcerptToken[], span: Span, state: IBuildSpanState): boolean {
 		if (span.kind === ts.SyntaxKind.JSDocComment) {
 			// Discard any comments
@@ -174,18 +183,21 @@ export class ExcerptBuilder {
 		if (span.prefix) {
 			let canonicalReference: DeclarationReference | undefined;
 
-			if (span.kind === ts.SyntaxKind.Identifier) {
-				const name: ts.Identifier = span.node as ts.Identifier;
-				if (!ExcerptBuilder._isDeclarationName(name)) {
-					canonicalReference = state.referenceGenerator.getDeclarationReferenceForIdentifier(name);
-				}
+			if (ts.isIdentifier(span.node)) {
+				const name: ts.Identifier = span.node;
+				canonicalReference = state.referenceGenerator.getDeclarationReferenceForIdentifier(name);
 			}
 
 			if (canonicalReference) {
 				ExcerptBuilder._appendToken(excerptTokens, ExcerptTokenKind.Reference, span.prefix, canonicalReference);
-			} else if (ExcerptBuilder.isPrimitiveKeyword(span.node)) {
+			} else if (
+				ExcerptBuilder._isPrimitiveKeyword(span.node) ||
+				(ts.isIdentifier(span.node) &&
+					((ts.isTypeReferenceNode(span.node.parent) && span.node.parent.typeName === span.node) ||
+						(ts.isTypeParameterDeclaration(span.node.parent) && span.node.parent.name === span.node)))
+			) {
 				ExcerptBuilder._appendToken(excerptTokens, ExcerptTokenKind.Reference, span.prefix);
-			} else {
+			} else if (!ExcerptBuilder._isRedundantBarAfterColon(span)) {
 				ExcerptBuilder._appendToken(excerptTokens, ExcerptTokenKind.Content, span.prefix);
 			}
 
@@ -209,7 +221,11 @@ export class ExcerptBuilder {
 		}
 
 		if (span.separator) {
-			ExcerptBuilder._appendToken(excerptTokens, ExcerptTokenKind.Content, span.separator);
+			ExcerptBuilder._appendToken(
+				excerptTokens,
+				ExcerptTokenKind.Content,
+				span.separator.replaceAll('\n', '').replaceAll(/\s{2}/g, ' '),
+			);
 			state.lastAppendedTokenIsSeparator = true;
 		}
 
@@ -306,6 +322,12 @@ export class ExcerptBuilder {
 					!startOrEndIndices.has(currentIndex)
 				) {
 					prevToken.text += currentToken.text;
+					// Remove BarTokens from excerpts if they immediately follow a LessThanToken, e.g. `Promise< | Something>`
+					// would become `Promise<Something>`
+					if (/<\s*\|/.test(prevToken.text)) {
+						prevToken.text = prevToken.text.replace(/<\s*\|\s*/, '<');
+					}
+
 					mergeCount = 1;
 				} else {
 					// Otherwise, no merging can occur here. Continue to the next index.
@@ -335,7 +357,7 @@ export class ExcerptBuilder {
 				}
 			}
 		}
-	}
+	} /*
 
 	private static _isDeclarationName(name: ts.Identifier): boolean {
 		return ExcerptBuilder._isDeclaration(name.parent) && name.parent.name === name;
@@ -366,5 +388,5 @@ export class ExcerptBuilder {
 			default:
 				return false;
 		}
-	}
+	} // */
 }

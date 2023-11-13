@@ -185,13 +185,17 @@ import {
   PartialEmojiOnlyId,
   Emoji,
   PartialEmoji,
+  Awaitable,
 } from '.';
 import { expectAssignable, expectNotAssignable, expectNotType, expectType } from 'tsd';
 import type { ContextMenuCommandBuilder, SlashCommandBuilder } from '@discordjs/builders';
 
 // Test type transformation:
-declare const serialize: <T>(value: T) => Serialized<T>;
-declare const notPropertyOf: <T, P extends PropertyKey>(value: T, property: P & Exclude<P, keyof T>) => void;
+declare const serialize: <Value>(value: Value) => Serialized<Value>;
+declare const notPropertyOf: <Value, Property extends PropertyKey>(
+  value: Value,
+  property: Property & Exclude<Property, keyof Value>,
+) => void;
 
 const client: Client = new Client({
   intents: GatewayIntentBits.Guilds,
@@ -409,7 +413,7 @@ client.on('messageCreate', async message => {
       (
         test: ButtonInteraction<'cached'>,
         items: Collection<Snowflake, ButtonInteraction<'cached'>>,
-      ) => boolean | Promise<boolean>
+      ) => Awaitable<boolean>
     >(buttonCollector.filter);
     expectType<GuildTextBasedChannel>(message.channel);
     expectType<Guild>(message.guild);

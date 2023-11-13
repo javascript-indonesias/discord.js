@@ -5,7 +5,7 @@ const { REST } = require('@discordjs/rest');
 const { Routes } = require('discord-api-types/v10');
 const { DiscordjsTypeError, ErrorCodes } = require('../errors');
 const Options = require('../util/Options');
-const { mergeDefault, flatten } = require('../util/Util');
+const { flatten } = require('../util/Util');
 
 /**
  * The base class for all clients.
@@ -23,15 +23,30 @@ class BaseClient extends EventEmitter {
      * The options the client was instantiated with
      * @type {ClientOptions}
      */
-    this.options = mergeDefault(Options.createDefault(), {
+    const defaultOptions = Options.createDefault();
+    this.options = {
+      ...defaultOptions,
       ...options,
+      presence: {
+        ...defaultOptions.presence,
+        ...options.presence,
+      },
+      sweepers: {
+        ...defaultOptions.sweepers,
+        ...options.sweepers,
+      },
+      ws: {
+        ...defaultOptions.ws,
+        ...options.ws,
+      },
       rest: {
+        ...defaultOptions.rest,
         ...options.rest,
         userAgentAppendix: options.rest?.userAgentAppendix
           ? `${Options.userAgentAppendix} ${options.rest.userAgentAppendix}`
           : undefined,
       },
-    });
+    };
 
     /**
      * The REST manager of the client
