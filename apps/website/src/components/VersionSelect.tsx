@@ -7,14 +7,18 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useMemo } from 'react';
 
-const isDev = process.env.NEXT_PUBLIC_LOCAL_DEV ?? process.env.NEXT_PUBLIC_VERCEL_ENV === 'preview';
+const isDev = process.env.NEXT_PUBLIC_LOCAL_DEV === 'true' ?? process.env.NEXT_PUBLIC_VERCEL_ENV === 'preview';
 
 export default function VersionSelect({ versions }: { readonly versions: string[] }) {
 	const pathname = usePathname();
 	const packageName = pathname?.split('/').slice(3, 4)[0];
 	const branchName = pathname?.split('/').slice(4, 5)[0];
 
-	const versionMenu = useMenuState({ gutter: 8, sameWidth: true, fitViewport: true });
+	const versionMenu = useMenuState({
+		gutter: 8,
+		sameWidth: true,
+		fitViewport: true,
+	});
 
 	const versionMenuItems = useMemo(
 		() =>

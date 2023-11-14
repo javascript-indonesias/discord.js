@@ -119,10 +119,14 @@ export async function generateMetadata({ params }: { params: ItemRouteParams }) 
 }
 
 export async function generateStaticParams({ params: { package: packageName, version } }: { params: ItemRouteParams }) {
+	if (process.env.NEXT_PUBLIC_VERCEL_ENV === 'preview') {
+		return [];
+	}
+
 	const modelJSON = await fetchModelJSON(packageName, version);
 
 	if (!modelJSON) {
-		return [{ package: packageName, version, item: '' }];
+		return [];
 	}
 
 	const model = addPackageToModel(new ApiModel(), modelJSON);
@@ -131,7 +135,7 @@ export async function generateStaticParams({ params: { package: packageName, ver
 	const entry = pkg?.entryPoints[0];
 
 	if (!entry) {
-		return [{ package: packageName, version, item: '' }];
+		return [];
 	}
 
 	return entry.members.map((member: ApiItem) => ({
@@ -168,7 +172,7 @@ export default async function Page({ params }: { params: ItemRouteParams }) {
 	}
 
 	return (
-		<div className="relative top-6">
+		<div className="relative">
 			<Member member={member} />
 		</div>
 	);
