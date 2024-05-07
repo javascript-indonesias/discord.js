@@ -4,10 +4,10 @@ const { Buffer } = require('node:buffer');
 const { lazy, isJSONEncodable } = require('@discordjs/util');
 const { MessageFlags } = require('discord-api-types/v10');
 const ActionRowBuilder = require('./ActionRowBuilder');
-const { DiscordjsRangeError, ErrorCodes } = require('../errors');
+const { DiscordjsError, DiscordjsRangeError, ErrorCodes } = require('../errors');
 const { resolveFile } = require('../util/DataResolver');
 const MessageFlagsBitField = require('../util/MessageFlagsBitField');
-const { basename, verifyString } = require('../util/Util');
+const { basename, verifyString, resolvePartialEmoji } = require('../util/Util');
 
 const getBaseInteraction = lazy(() => require('./BaseInteraction'));
 
@@ -133,6 +133,11 @@ class MessagePayload {
       }
     }
 
+    const enforce_nonce = Boolean(this.options.enforceNonce);
+    if (enforce_nonce && nonce === undefined) {
+      throw new DiscordjsError(ErrorCodes.MessageNonceRequired);
+    }
+
     const components = this.options.components?.map(component =>
       (isJSONEncodable(component) ? component : new ActionRowBuilder(component)).toJSON(),
     );
@@ -197,10 +202,26 @@ class MessagePayload {
       this.options.attachments = attachments;
     }
 
+    let poll;
+    if (this.options.poll) {
+      poll = {
+        question: {
+          text: this.options.poll.question.text,
+        },
+        answers: this.options.poll.answers.map(answer => ({
+          poll_media: { text: answer.text, emoji: resolvePartialEmoji(answer.emoji) },
+        })),
+        duration: this.options.poll.duration,
+        allow_multiselect: this.options.poll.allowMultiselect,
+        layout_type: this.options.poll.layoutType,
+      };
+    }
+
     this.body = {
       content,
       tts,
       nonce,
+      enforce_nonce,
       embeds: this.options.embeds?.map(embed =>
         isJSONEncodable(embed) ? embed.toJSON() : this.target.client.options.jsonTransformer(embed),
       ),
@@ -214,6 +235,7 @@ class MessagePayload {
       sticker_ids: this.options.stickers?.map(sticker => sticker.id ?? sticker),
       thread_name: threadName,
       applied_tags: appliedTags,
+      poll,
     };
     return this;
   }
