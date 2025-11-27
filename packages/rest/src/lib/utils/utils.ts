@@ -1,11 +1,17 @@
 import type { RESTPatchAPIChannelJSONBody, Snowflake } from 'discord-api-types/v10';
 import type { REST } from '../REST.js';
 import { RateLimitError } from '../errors/RateLimitError.js';
-import { DEPRECATION_WARNING_PREFIX } from './constants.js';
 import { RequestMethod } from './types.js';
-import type { GetRateLimitOffsetFunction, RateLimitData, ResponseLike } from './types.js';
+import type {
+	GetRateLimitOffsetFunction,
+	GetRetryBackoffFunction,
+	GetTimeoutFunction,
+	RateLimitData,
+	ResponseLike,
+} from './types.js';
 
 function serializeSearchParam(value: unknown): string | null {
+	// eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check
 	switch (typeof value) {
 		case 'string':
 			return value;
@@ -144,21 +150,6 @@ export function isBufferLike(value: unknown): value is ArrayBuffer | Buffer | Ui
 }
 
 /**
- * Irrespective environment warning.
- *
- * @remarks Only the message is needed. The deprecation prefix is handled already.
- * @param message - A string the warning will emit with
- * @internal
- */
-export function deprecationWarning(message: string) {
-	if (typeof globalThis.process === 'undefined') {
-		console.warn(`${DEPRECATION_WARNING_PREFIX}: ${message}`);
-	} else {
-		process.emitWarning(message, DEPRECATION_WARNING_PREFIX);
-	}
-}
-
-/**
  * Normalizes the offset for rate limits. Applies a Math.max(0, N) to prevent negative offsets,
  * also deals with callbacks.
  *
@@ -170,5 +161,41 @@ export function normalizeRateLimitOffset(offset: GetRateLimitOffsetFunction | nu
 	}
 
 	const result = offset(route);
+	return Math.max(0, result);
+}
+
+/**
+ * Normalizes the retry backoff used to add delay to retrying 5xx and aborted requests.
+ * Applies a Math.max(0, N) to prevent negative backoffs, also deals with callbacks.
+ *
+ * @internal
+ */
+export function normalizeRetryBackoff(
+	retryBackoff: GetRetryBackoffFunction | number,
+	route: string,
+	statusCode: number | null,
+	retryCount: number,
+	requestBody: unknown,
+): number | null {
+	if (typeof retryBackoff === 'number') {
+		return Math.max(0, retryBackoff) * (1 << retryCount);
+	}
+
+	// No need to Math.max as we'll only set the sleep timer if the value is > 0 (and not equal)
+	return retryBackoff(route, statusCode, retryCount, requestBody);
+}
+
+/**
+ * Normalizes the timeout for aborting requests. Applies a Math.max(0, N) to prevent negative timeouts,
+ * also deals with callbacks.
+ *
+ * @internal
+ */
+export function normalizeTimeout(timeout: GetTimeoutFunction | number, route: string, requestBody: unknown): number {
+	if (typeof timeout === 'number') {
+		return Math.max(0, timeout);
+	}
+
+	const result = timeout(route, requestBody);
 	return Math.max(0, result);
 }

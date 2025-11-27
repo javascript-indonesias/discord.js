@@ -1,9 +1,11 @@
 /* eslint-disable jsdoc/check-param-names */
 
 import { Buffer } from 'node:buffer';
-import { VoiceOpcodes } from 'discord-api-types/voice/v4';
-import type { VoiceConnection } from '../VoiceConnection';
-import type { ConnectionData } from '../networking/Networking';
+import crypto from 'node:crypto';
+import type { VoiceReceivePayload } from 'discord-api-types/voice/v8';
+import { VoiceOpcodes } from 'discord-api-types/voice/v8';
+import { VoiceConnectionStatus, type VoiceConnection } from '../VoiceConnection';
+import { NetworkingStatusCode, type ConnectionData } from '../networking/Networking';
 import { methods } from '../util/Secretbox';
 import {
 	AudioReceiveStream,
@@ -12,6 +14,10 @@ import {
 } from './AudioReceiveStream';
 import { SSRCMap } from './SSRCMap';
 import { SpeakingMap } from './SpeakingMap';
+
+const HEADER_EXTENSION_BYTE = Buffer.from([0xbe, 0xde]);
+const UNPADDED_NONCE_LENGTH = 4;
+const AUTH_TAG_LENGTH = 16;
 
 /**
  * Attaches to a VoiceConnection, allowing you to receive audio packets from other
@@ -64,45 +70,57 @@ export class VoiceReceiver {
 	 * @param packet - The received packet
 	 * @internal
 	 */
-	public onWsPacket(packet: any) {
-		if (packet.op === VoiceOpcodes.ClientDisconnect && typeof packet.d?.user_id === 'string') {
+	public onWsPacket(packet: VoiceReceivePayload) {
+		if (packet.op === VoiceOpcodes.ClientDisconnect) {
 			this.ssrcMap.delete(packet.d.user_id);
-		} else if (
-			packet.op === VoiceOpcodes.Speaking &&
-			typeof packet.d?.user_id === 'string' &&
-			typeof packet.d?.ssrc === 'number'
-		) {
+		} else if (packet.op === VoiceOpcodes.Speaking) {
 			this.ssrcMap.update({ userId: packet.d.user_id, audioSSRC: packet.d.ssrc });
-		} else if (
-			packet.op === VoiceOpcodes.ClientConnect &&
-			typeof packet.d?.user_id === 'string' &&
-			typeof packet.d?.audio_ssrc === 'number'
-		) {
-			this.ssrcMap.update({
-				userId: packet.d.user_id,
-				audioSSRC: packet.d.audio_ssrc,
-				videoSSRC: packet.d.video_ssrc === 0 ? undefined : packet.d.video_ssrc,
-			});
 		}
 	}
 
 	private decrypt(buffer: Buffer, mode: string, nonce: Buffer, secretKey: Uint8Array) {
-		// Choose correct nonce depending on encryption
-		let end;
-		if (mode === 'xsalsa20_poly1305_lite') {
-			buffer.copy(nonce, 0, buffer.length - 4);
-			end = buffer.length - 4;
-		} else if (mode === 'xsalsa20_poly1305_suffix') {
-			buffer.copy(nonce, 0, buffer.length - 24);
-			end = buffer.length - 24;
-		} else {
-			buffer.copy(nonce, 0, 0, 12);
-		}
+		// Copy the last 4 bytes of unpadded nonce to the padding of (12 - 4) or (24 - 4) bytes
+		buffer.copy(nonce, 0, buffer.length - UNPADDED_NONCE_LENGTH);
 
-		// Open packet
-		const decrypted = methods.open(buffer.slice(12, end), nonce, secretKey);
-		if (!decrypted) return;
-		return Buffer.from(decrypted);
+		let headerSize = 12;
+		const first = buffer.readUint8();
+		if ((first >> 4) & 0x01) headerSize += 4;
+
+		// The unencrypted RTP header contains 12 bytes, HEADER_EXTENSION and the extension size
+		const header = buffer.subarray(0, headerSize);
+
+		// Encrypted contains the extension, if any, the opus packet, and the auth tag
+		const encrypted = buffer.subarray(headerSize, buffer.length - AUTH_TAG_LENGTH - UNPADDED_NONCE_LENGTH);
+		const authTag = buffer.subarray(
+			buffer.length - AUTH_TAG_LENGTH - UNPADDED_NONCE_LENGTH,
+			buffer.length - UNPADDED_NONCE_LENGTH,
+		);
+
+		switch (mode) {
+			case 'aead_aes256_gcm_rtpsize': {
+				const decipheriv = crypto.createDecipheriv('aes-256-gcm', secretKey, nonce);
+				decipheriv.setAAD(header);
+				decipheriv.setAuthTag(authTag);
+
+				return Buffer.concat([decipheriv.update(encrypted), decipheriv.final()]);
+			}
+
+			case 'aead_xchacha20_poly1305_rtpsize': {
+				// Combined mode expects authtag in the encrypted message
+				return Buffer.from(
+					methods.crypto_aead_xchacha20poly1305_ietf_decrypt(
+						Buffer.concat([encrypted, authTag]),
+						header,
+						nonce,
+						secretKey,
+					),
+				);
+			}
+
+			default: {
+				throw new RangeError(`Unsupported decryption method: ${mode}`);
+			}
+		}
 	}
 
 	/**
@@ -112,16 +130,28 @@ export class VoiceReceiver {
 	 * @param mode - The encryption mode
 	 * @param nonce - The nonce buffer used by the connection for encryption
 	 * @param secretKey - The secret key used by the connection for encryption
+	 * @param userId - The user id that sent the packet
 	 * @returns The parsed Opus packet
 	 */
-	private parsePacket(buffer: Buffer, mode: string, nonce: Buffer, secretKey: Uint8Array) {
-		let packet = this.decrypt(buffer, mode, nonce, secretKey);
-		if (!packet) return;
+	private parsePacket(buffer: Buffer, mode: string, nonce: Buffer, secretKey: Uint8Array, userId: string) {
+		let packet: Buffer = this.decrypt(buffer, mode, nonce, secretKey);
+		if (!packet) throw new Error('Failed to parse packet');
 
-		// Strip RTP Header Extensions (one-byte only)
-		if (packet[0] === 0xbe && packet[1] === 0xde) {
-			const headerExtensionLength = packet.readUInt16BE(2);
-			packet = packet.subarray(4 + 4 * headerExtensionLength);
+		// Strip decrypted RTP Header Extension if present
+		// The header is only indicated in the original data, so compare with buffer first
+		if (buffer.subarray(12, 14).compare(HEADER_EXTENSION_BYTE) === 0) {
+			const headerExtensionLength = buffer.subarray(14).readUInt16BE();
+			packet = packet.subarray(4 * headerExtensionLength);
+		}
+
+		// Decrypt packet if in a DAVE session.
+		if (
+			this.voiceConnection.state.status === VoiceConnectionStatus.Ready &&
+			(this.voiceConnection.state.networking.state.code === NetworkingStatusCode.Ready ||
+				this.voiceConnection.state.networking.state.code === NetworkingStatusCode.Resuming)
+		) {
+			const daveSession = this.voiceConnection.state.networking.state.dave;
+			if (daveSession) packet = daveSession.decrypt(packet, userId)!;
 		}
 
 		return packet;
@@ -146,16 +176,17 @@ export class VoiceReceiver {
 		if (!stream) return;
 
 		if (this.connectionData.encryptionMode && this.connectionData.nonceBuffer && this.connectionData.secretKey) {
-			const packet = this.parsePacket(
-				msg,
-				this.connectionData.encryptionMode,
-				this.connectionData.nonceBuffer,
-				this.connectionData.secretKey,
-			);
-			if (packet) {
-				stream.push(packet);
-			} else {
-				stream.destroy(new Error('Failed to parse packet'));
+			try {
+				const packet = this.parsePacket(
+					msg,
+					this.connectionData.encryptionMode,
+					this.connectionData.nonceBuffer,
+					this.connectionData.secretKey,
+					userData.userId,
+				);
+				if (packet) stream.push(packet);
+			} catch (error) {
+				stream.destroy(error as Error);
 			}
 		}
 	}

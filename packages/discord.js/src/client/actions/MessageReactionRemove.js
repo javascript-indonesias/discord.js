@@ -1,7 +1,7 @@
 'use strict';
 
-const Action = require('./Action');
-const Events = require('../../util/Events');
+const { Events } = require('../../util/Events.js');
+const { Action } = require('./Action.js');
 
 /*
 { user_id: 'id',
@@ -11,7 +11,7 @@ const Events = require('../../util/Events');
      guild_id: 'id' }
 */
 
-class MessageReactionRemove extends Action {
+class MessageReactionRemoveAction extends Action {
   handle(data) {
     if (!data.emoji) return false;
 
@@ -36,15 +36,16 @@ class MessageReactionRemove extends Action {
     reaction._remove(user, data.burst);
     /**
      * Emitted whenever a reaction is removed from a cached message.
+     *
      * @event Client#messageReactionRemove
      * @param {MessageReaction} messageReaction The reaction object
      * @param {User} user The user whose emoji or reaction emoji was removed
      * @param {MessageReactionEventDetails} details Details of removing the reaction
      */
-    this.client.emit(Events.MessageReactionRemove, reaction, user, { burst: data.burst });
+    this.client.emit(Events.MessageReactionRemove, reaction, user, { type: data.type, burst: data.burst });
 
     return { message, reaction, user };
   }
 }
 
-module.exports = MessageReactionRemove;
+exports.MessageReactionRemoveAction = MessageReactionRemoveAction;

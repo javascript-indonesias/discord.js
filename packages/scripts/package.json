@@ -5,13 +5,14 @@
 	"description": "A set of scripts that we use for our workflows",
 	"private": true,
 	"scripts": {
-		"build": "tsc --noEmit --lib ESNext,DOM  && tsup",
+		"build": "tsc --noEmit --lib ESNext,DOM && tsup",
 		"lint": "prettier --check . && cross-env TIMING=1 eslint --format=pretty src turbo/generators/config.ts",
 		"format": "prettier --write . && cross-env TIMING=1 eslint --fix --format=pretty src turbo/generators/config.ts",
 		"fmt": "pnpm run format"
 	},
 	"bin": {
-		"generate-split-documentation": "./bin/generateSplitDocumentation.js"
+		"generate-split-documentation": "./bin/generateSplitDocumentation.js",
+		"sort-labels": "./bin/sortLabels.js"
 	},
 	"exports": {
 		".": {
@@ -62,31 +63,30 @@
 		"@actions/glob": "^0.5.0",
 		"@discordjs/api-extractor-model": "workspace:^",
 		"@discordjs/api-extractor-utils": "workspace:^",
-		"@microsoft/tsdoc": "0.14.2",
-		"@microsoft/tsdoc-config": "0.16.2",
-		"@vercel/blob": "^0.23.4",
-		"@vercel/postgres": "^0.9.0",
-		"commander": "^12.1.0",
-		"tslib": "^2.6.3",
-		"undici": "6.19.8",
-		"yaml": "^2.5.0"
+		"@microsoft/tsdoc": "~0.15.1",
+		"@microsoft/tsdoc-config": "~0.17.1",
+		"@vercel/blob": "^2.0.0",
+		"@vercel/postgres": "^0.10.0",
+		"commander": "^14.0.2",
+		"tslib": "^2.8.1",
+		"undici": "7.16.0",
+		"yaml": "^2.8.1"
 	},
 	"devDependencies": {
-		"@turbo/gen": "^2.0.14",
-		"@types/node": "^18.19.45",
-		"@vitest/coverage-v8": "^2.0.5",
-		"cross-env": "^7.0.3",
-		"env-cmd": "^10.1.0",
-		"eslint": "^8.57.0",
-		"eslint-config-neon": "^0.1.62",
-		"eslint-formatter-pretty": "^6.0.1",
-		"prettier": "^3.3.3",
-		"tsup": "^8.2.4",
-		"turbo": "^2.0.14",
-		"typescript": "~5.5.4",
-		"vitest": "^2.0.5"
+		"@turbo/gen": "^2.5.8",
+		"@types/node": "^22.18.13",
+		"cross-env": "^10.1.0",
+		"eslint": "^9.38.0",
+		"eslint-config-neon": "^0.2.9",
+		"eslint-formatter-compact": "^9.0.1",
+		"eslint-formatter-pretty": "^7.0.0",
+		"prettier": "^3.6.2",
+		"terser": "^5.44.0",
+		"tsup": "^8.5.0",
+		"turbo": "^2.5.8",
+		"typescript": "~5.9.3"
 	},
 	"engines": {
-		"node": ">=18"
+		"node": ">=22.12.0"
 	}
 }

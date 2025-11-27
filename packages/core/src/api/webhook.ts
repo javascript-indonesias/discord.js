@@ -9,6 +9,7 @@ import {
 	type RESTPatchAPIWebhookJSONBody,
 	type RESTPatchAPIWebhookResult,
 	type RESTPatchAPIWebhookWithTokenMessageJSONBody,
+	type RESTPatchAPIWebhookWithTokenMessageQuery,
 	type RESTPatchAPIWebhookWithTokenMessageResult,
 	type RESTPostAPIWebhookWithTokenGitHubQuery,
 	type RESTPostAPIWebhookWithTokenJSONBody,
@@ -17,6 +18,14 @@ import {
 	type RESTPostAPIWebhookWithTokenWaitResult,
 	type Snowflake,
 } from 'discord-api-types/v10';
+
+export type CreateWebhookMessageOptions = RESTPostAPIWebhookWithTokenJSONBody &
+	RESTPostAPIWebhookWithTokenQuery & { files?: RawFile[] };
+
+export type EditWebhookMessageOptions = RESTPatchAPIWebhookWithTokenMessageJSONBody &
+	RESTPatchAPIWebhookWithTokenMessageQuery & {
+		files?: RawFile[];
+	};
 
 export class WebhooksAPI {
 	public constructor(private readonly rest: REST) {}
@@ -92,7 +101,7 @@ export class WebhooksAPI {
 	public async execute(
 		id: Snowflake,
 		token: string,
-		body: RESTPostAPIWebhookWithTokenJSONBody & RESTPostAPIWebhookWithTokenQuery & { files?: RawFile[]; wait: true },
+		body: CreateWebhookMessageOptions & { wait: true },
 		options?: Pick<RequestData, 'signal'>,
 	): Promise<RESTPostAPIWebhookWithTokenWaitResult>;
 
@@ -108,7 +117,7 @@ export class WebhooksAPI {
 	public async execute(
 		id: Snowflake,
 		token: string,
-		body: RESTPostAPIWebhookWithTokenJSONBody & RESTPostAPIWebhookWithTokenQuery & { files?: RawFile[]; wait?: false },
+		body: CreateWebhookMessageOptions & { wait?: false },
 		options?: Pick<RequestData, 'signal'>,
 	): Promise<void>;
 
@@ -124,21 +133,15 @@ export class WebhooksAPI {
 	public async execute(
 		id: Snowflake,
 		token: string,
-		{
-			wait,
-			thread_id,
-			files,
-			...body
-		}: RESTPostAPIWebhookWithTokenJSONBody & RESTPostAPIWebhookWithTokenQuery & { files?: RawFile[] },
+		{ wait, thread_id, with_components, files, ...body }: CreateWebhookMessageOptions,
 		{ signal }: Pick<RequestData, 'signal'> = {},
 	) {
 		return this.rest.post(Routes.webhook(id, token), {
-			query: makeURLSearchParams({ wait, thread_id }),
+			query: makeURLSearchParams({ wait, thread_id, with_components }),
 			files,
 			body,
 			auth: false,
 			signal,
-			// eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 		}) as Promise<RESTPostAPIWebhookWithTokenWaitResult | void>;
 	}
 
@@ -230,15 +233,11 @@ export class WebhooksAPI {
 		id: Snowflake,
 		token: string,
 		messageId: Snowflake,
-		{
-			thread_id,
-			files,
-			...body
-		}: RESTPatchAPIWebhookWithTokenMessageJSONBody & { files?: RawFile[]; thread_id?: string },
+		{ thread_id, with_components, files, ...body }: EditWebhookMessageOptions,
 		{ signal }: Pick<RequestData, 'signal'> = {},
 	) {
 		return this.rest.patch(Routes.webhookMessage(id, token, messageId), {
-			query: makeURLSearchParams({ thread_id }),
+			query: makeURLSearchParams({ thread_id, with_components }),
 			auth: false,
 			body,
 			signal,

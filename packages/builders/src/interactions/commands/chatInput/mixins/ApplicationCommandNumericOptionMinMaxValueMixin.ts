@@ -7,7 +7,10 @@ export interface ApplicationCommandNumericOptionMinMaxValueData
  * This mixin holds minimum and maximum symbols used for options.
  */
 export abstract class ApplicationCommandNumericOptionMinMaxValueMixin {
-	protected declare readonly data: ApplicationCommandNumericOptionMinMaxValueData;
+	/**
+	 * @internal
+	 */
+	declare protected readonly data: ApplicationCommandNumericOptionMinMaxValueData;
 
 	/**
 	 * Sets the maximum number value of this option.
